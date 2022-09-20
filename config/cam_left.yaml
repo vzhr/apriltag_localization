@@ -1,0 +1,16 @@
+%YAML:1.0
+---
+image_topic: "/camera/infra1/image_rect_raw"
+camera_name: cam_left
+model_type: PINHOLE
+image_width: 640
+image_height: 480
+projection_parameters:
+  fx: 379.0649108886719
+  fy: 378.1988830566406
+  cx: 316.990234375
+  cy: 248.1222686767578
+  k1: 0.0
+  k2: -0.0
+  p1: 0.0
+  p2: 0.0

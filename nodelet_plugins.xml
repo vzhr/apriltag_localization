@@ -1,0 +1,9 @@
+<library path="lib/libapriltag_localization">
+    <class name="apriltag_localization/ApriltagLocalization"
+        type="apriltag_localization::ApriltagLocalizationNodeLet"
+		base_class_type="nodelet::Nodelet">
+		<description>
+			tag_localization
+		</description>
+	</class>
+</library>

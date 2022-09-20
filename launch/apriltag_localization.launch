@@ -1,0 +1,17 @@
+<launch>
+  <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+  <arg name="node_namespace" default="apriltag_localization_node" />
+  <arg name="camera_name" default="/camera_rect" />
+  <arg name="image_topic" default="image_rect" />
+  <arg name="nodelet_manager" default="tag_nodelet_manager" />
+  <!-- Set parameters -->
+  <rosparam command="load" file="$(find apriltag_localization)/config/settings.yaml" ns="$(arg node_namespace)" />
+  <rosparam command="load" file="$(find apriltag_localization)/config/tags.yaml" ns="$(arg node_namespace)" />
+
+<!--  <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"/>-->
+  <node pkg="apriltag_localization" type="apriltag_localization_node" name="$(arg node_namespace)" clear_params="true" output="screen" launch-prefix="$(arg launch_prefix)" >
+    <!-- Remap topics from those used in code to those on the ROS network -->
+    <param name="publish_tag_detections_image" type="bool" value="true" />      <!-- default: false -->
+    <param name="cam_config" type="string" value="$(find apriltag_localization)/config/" />      <!-- default: false -->
+  </node>
+</launch>
