@@ -7,14 +7,14 @@
 int main(){
   namespace plt = matplotlibcpp;
   apriltag_localization::PoseSystem system;
-  system.dt = 0.1;
-  Eigen::VectorXd state(6);
+  system.dt = 1;
+  Eigen::VectorXf state(6);
   state.setZero();
   state(3) = 0;
-  Eigen::VectorXd control(12);
+  Eigen::VectorXf control(12);
   control.setZero();
   control(0) = 0.1; // v0
-  control(5) = 0.0; // w0 in z
+  control(5) = 0.01; // w0 in z
   control(6) = 0.1; // v1
   control(11) = 0.01; // w1 in z
 //  control(0) = 0.1; // v0
@@ -25,8 +25,8 @@ int main(){
   for (int i = 0; i < 1000; ++i)
   {
     state = system.f(state, control);
-    control(5) = control(11);
-    control(11) += 0.01;
+//    control(5) = control(11);
+//    control(11) += 0.01;
     state_x.push_back(state(3));
     state_y.push_back(state(4));
 
