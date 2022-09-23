@@ -108,8 +108,7 @@ public:
   }
   void publishImg()
   {
-    // TODO: open camera
-
+    // open camera
     cv::VideoCapture capture(video_dev_);
     capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
     capture.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
@@ -123,8 +122,9 @@ public:
     while (ros::ok() && active_)
     {
       std::this_thread::sleep_for(10ms);
-      if (capture.isOpened() && capture.read(frame))
+      if (capture.isOpened())
       {
+        if (!capture.read(frame)){continue;}
         auto now = system_clock::now();
         if (first){
           first = false;
@@ -148,6 +148,7 @@ public:
       else
       {
         first = true;
+        pub_count＝0;
         capture.release();
         capture.open(video_dev_);
         capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
