@@ -407,8 +407,8 @@ protected:
     Eigen::Matrix3f rotation = T_baselink_cam_tag_front.matrix().topLeftCorner<3, 3>().cast<float>();
     Eigen::AngleAxisf angle_axisf(rotation);
 
-    measure.head(3) = translation;
-    measure.tail(3) = angle_axisf.angle() * angle_axisf.axis();
+    measure.tail(3) = translation;
+    measure.head(3) = angle_axisf.angle() * angle_axisf.axis();
     return find_tag;
   }
 
