@@ -7,3 +7,14 @@
 		</description>
 	</class>
 </library>
+
+<library path="lib/libimage_nodelet">
+    <class name="apriltag_localization/ImageNodeLet"
+        type="apriltag_localization::ImageNodeLet"
+		base_class_type="nodelet::Nodelet">
+		<description>
+			image publish nodelet
+		</description>
+	</class>
+</library>
+

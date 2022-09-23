@@ -6,6 +6,7 @@
 #include <thread>
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <nodelet/nodelet.h>
 #include <tf2_ros/transform_listener.h>
 #include <apriltag_ros/common_functions.h>
@@ -30,14 +31,6 @@ public:
     nh_ = getNodeHandle();
     mt_nh_ = getMTNodeHandle();
     pnh_ = getPrivateNodeHandle();
-
-    process_th_ = std::thread(&ApriltagLocalizationNodeLet::processImg, this);
-
-    active_ = false;
-    cam_name_sub_ = mt_nh_.subscribe("tag_cam_name", 10, &ApriltagLocalizationNodeLet::camNameCallback, this,
-                                     ros::TransportHints().tcp());
-    odom_sub_ = mt_nh_.subscribe("odometry", 10, &ApriltagLocalizationNodeLet::odomCallback, this);
-    pose_pub_ = mt_nh_.advertise<nav_msgs::Odometry>("pose_in_tag", 1);
     if (pnh_.hasParam("cam_config"))
     {
       pnh_.getParam("cam_config", cam_config_path_);
@@ -60,7 +53,10 @@ public:
     {
       tag_detections_image_publisher_ = it_->advertise("tag_detections_image", 1);
     }
-    pose_estimator_ = std::make_unique<PoseEstimator>();
+    cam_name_sub_ = mt_nh_.subscribe("tag_cam_name", 10, &ApriltagLocalizationNodeLet::camNameCallback, this,
+                                     ros::TransportHints().tcp());
+    odom_sub_ = mt_nh_.subscribe("odom", 10, &ApriltagLocalizationNodeLet::odomCallback, this);
+    pose_pub_ = mt_nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
   }
 
   void odomCallback(const nav_msgs::OdometryConstPtr& msg)
@@ -84,9 +80,33 @@ public:
       }
     }
 
-    // TODO publish pose
+    // publish pose
+    if (T_correct_tag_odom_)
+    {
+      auto& pose = msg->pose.pose.position;
+      auto& twist = msg->pose.pose.orientation;
+      Eigen::Isometry3d T_odom_baselink = Eigen::Isometry3d::Identity();
+      T_odom_baselink.translation() = Eigen::Vector3d(pose.x, pose.y, pose.z);
+      T_odom_baselink.linear() = Eigen::Quaterniond(twist.w, twist.x, twist.y, twist.z).toRotationMatrix();
+      Eigen::Isometry3d T_tag_baselink = *T_correct_tag_odom_ * T_odom_baselink;
+      auto pose_msg = boost::make_shared<geometry_msgs::PoseStamped>();
+      pose_msg->header.frame_id = select_tag_name_;
+      pose_msg->header.stamp = ros::Time::now();
+      pose_msg->pose.position.x = T_tag_baselink.translation().x();
+      pose_msg->pose.position.y = T_tag_baselink.translation().y();
+      pose_msg->pose.position.z = T_tag_baselink.translation().z();
+      Eigen::Quaterniond q(T_tag_baselink.linear());
+      pose_msg->pose.orientation.w = q.w();
+      pose_msg->pose.orientation.x = q.x();
+      pose_msg->pose.orientation.y = q.y();
+      pose_msg->pose.orientation.z = q.z();
+      pose_pub_.publish(pose_msg);
 
-
+      Eigen::Matrix3d rotation = T_tag_baselink.linear();
+      double theta = std::atan2(rotation(1,0), rotation(0,0));
+      ROS_DEBUG("theta: %f", theta);
+      ROS_DEBUG_STREAM("pose: " << T_tag_baselink.translation().transpose());
+    }
   }
   void cleanOldOdomData(double stamp)
   {
@@ -99,6 +119,7 @@ public:
 
   void camNameCallback(const std_msgs::StringConstPtr& msg)
   {
+
     // setup camera model and image callback
     std::string msg_string = msg->data;
     std::string cam_name;
@@ -122,7 +143,6 @@ public:
     if (!fs.isOpened() || fs["image_topic"].isNone())
     {
       ROS_WARN("open file: %s error!", cam_config_file.c_str());
-      stop();
       return;
     }
 
@@ -138,6 +158,8 @@ public:
     // setup camera model
     CameraPtr camera = CameraFactory::instance()->generateCameraFromYamlFile(cam_config_file);
     tag_detector_->setCam(camera);
+    stop();
+    start();
   }
   void imageCallback(const sensor_msgs::ImageConstPtr& image_rect)
   {
@@ -148,13 +170,15 @@ public:
     // Lazy updates:
     // When there are no subscribers _and_ when tf is not published,
     // skip detection.
-    if (pose_pub_.getNumSubscribers() == 0 && tag_detections_publisher_.getNumSubscribers() == 0 &&
-        tag_detections_image_publisher_.getNumSubscribers() == 0 && !tag_detector_->get_publish_tf())
-    {
-      ROS_INFO_STREAM("No subscribers and no tf publishing, skip processing.");
-      stop();
-      return;
-    }
+    /*
+     if (pose_pub_.getNumSubscribers() == 0 && tag_detections_publisher_.getNumSubscribers() == 0 &&
+         tag_detections_image_publisher_.getNumSubscribers() == 0 && !tag_detector_->get_publish_tf())
+     {
+       ROS_INFO_STREAM("No subscribers and no tf publishing, skip processing.");
+       stop();
+       return;
+     }
+     */
 
     // Convert ROS's sensor_msgs::Image to cv_bridge::CvImagePtr in order to run
     // AprilTag 2 on the image
@@ -173,6 +197,10 @@ public:
     }
     img_con_.notify_one();
   }
+  virtual ~ApriltagLocalizationNodeLet()
+  {
+    stop();
+  }
 
 protected:
   void processImg()
@@ -180,14 +208,13 @@ protected:
     while (ros::ok())
     {
       std::unique_lock<std::mutex> lk(image_mutex_);
-      img_con_.wait(lk, [&]() { return !image_queue_.empty(); });
+      img_con_.wait(lk, [&]() { return !(image_queue_.empty() && active_); });  // active here for out loop notify
       while (!image_queue_.empty())
       {
         if (!active_)
         {
           image_queue_.clear();
-          lk.unlock();
-          break;
+          return;
         }
 
         cv_bridge::CvImagePtr cv_image = image_queue_.front();
@@ -197,6 +224,7 @@ protected:
         AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel(cv_image, detection_names);
         if (tag_result.detections.empty())
         {
+          lk.lock();
           continue;
         }
 
@@ -216,6 +244,7 @@ protected:
         {
           update(tag_result.header.stamp.toSec(), measure);
         }
+        lk.lock();
       }
     }
   }
@@ -451,10 +480,20 @@ protected:
   }
   void stop()
   {
-    select_tag_name_.clear();
-    pose_estimator_.reset();
     active_ = false;
     camera_image_subscriber_.shutdown();
+    select_tag_name_.clear();
+    pose_estimator_.reset();
+    T_correct_tag_odom_ = boost::none;
+    img_con_.notify_all();  // for out process loop
+    if (process_th_)
+    {
+      ROS_INFO("process join");
+      process_th_->join();
+    }
+    ROS_INFO("apriltag localization: stop0");
+    process_th_.reset();
+    ROS_INFO("apriltag localization: stop1");
   }
   void start()
   {
@@ -462,13 +501,14 @@ protected:
     active_ = true;
     // setup subscribe
     std::string transport_hint;
-    pnh_.param<std::string>("transport_hint", transport_hint, "compressed");
+    pnh_.getParam("transport_hint", transport_hint);
     camera_image_subscriber_ = it_->subscribe(image_topic_, 1, &ApriltagLocalizationNodeLet::imageCallback, this,
                                               image_transport::TransportHints(transport_hint));
     ROS_INFO("camera_image_subscriber setup on topic: %s", image_topic_.c_str());
 
     // reset estimator
     pose_estimator_ = std::make_unique<PoseEstimator>();
+    process_th_ = std::make_unique<std::thread>(&ApriltagLocalizationNodeLet::processImg, this);
   }
 
 private:
@@ -497,10 +537,9 @@ private:
   std::deque<cv_bridge::CvImagePtr> image_queue_;
   std::deque<nav_msgs::OdometryConstPtr> odom_queue_;
 
-  std::atomic<bool> thread_update_running_;
   std::atomic<bool> active_;
   std::condition_variable img_con_;
-  std::thread process_th_;
+  std::unique_ptr<std::thread> process_th_;
 
   /// camera info
   std::string image_topic_;

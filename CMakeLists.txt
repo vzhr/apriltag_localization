@@ -35,8 +35,8 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 ENDIF()
 
 
-#add_compile_options("-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
-add_compile_options("-O3" "-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
+add_compile_options("-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
+#add_compile_options("-O3" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
 
 # Note: These options have been turned off to allow for binary releases -
 # in local builds, they can be reactivated to achieve higher performance.
@@ -100,16 +100,24 @@ add_library(apriltag_localization
 target_link_libraries(apriltag_localization ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} apriltag::apriltag Eigen3::Eigen)
 target_compile_options(apriltag_localization PRIVATE "-std=c++14")
 
+add_library(image_nodelet
+        app/image_nodelet.cpp
+        )
+target_link_libraries(image_nodelet ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} Eigen3::Eigen)
+target_compile_options(image_nodelet PRIVATE "-std=c++14")
 
 add_executable(apriltag_localization_node app/apriltage_localization_node.cpp)
 target_link_libraries(apriltag_localization_node apriltag_localization ${catkin_LIBRARIES})
+
+add_executable(apriltag_localization_with_camera_node app/apriltage_localization_with_camera_node.cpp)
+target_link_libraries(apriltag_localization_with_camera_node apriltag_localization image_nodelet ${catkin_LIBRARIES})
 
 find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
 add_executable(pose_rk4_test test/rk4_test.cpp include/apriltag_localization/pose_system.h test/matplotlibcpp.h)
 target_link_libraries(pose_rk4_test Eigen3::Eigen Python3::Python Python3::Module Python3::NumPy)
 
 
-set(APRILTAG_ROS "apriltag_ros")
+#set(APRILTAG_ROS "apriltag_ros")
 
 #add_library(${APRILTAG_ROS}_continuous_detector src/continuous_detector.cpp)
 #target_link_libraries(${APRILTAG_ROS}_continuous_detector ${APRILTAG_ROS}_common ${catkin_LIBRARIES})
@@ -147,7 +155,7 @@ install(FILES nodelet_plugins.xml
 )
 
 install(TARGETS
-  apriltag_localization apriltag_localization_node
+  apriltag_localization apriltag_localization_node image_nodelet
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
