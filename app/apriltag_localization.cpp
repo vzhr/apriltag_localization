@@ -152,9 +152,10 @@ public:
     fs["T_base_cam"] >> cv_T;
     Eigen::Matrix4d T;
     cv::cv2eigen(cv_T, T);
-    T_baselink_cam_.matrix() = T;
     fs.release();
-
+    std::cout << T <<std::endl;
+    T_baselink_cam_.translation() = T.block<3,1>(0,3);
+    T_baselink_cam_.linear() = T.block<3,3>(0,0);
     // setup camera model
     CameraPtr camera = CameraFactory::instance()->generateCameraFromYamlFile(cam_config_file);
     tag_detector_->setCam(camera);
@@ -205,10 +206,10 @@ public:
 protected:
   void processImg()
   {
-    while (ros::ok())
+    while (ros::ok() && active_)
     {
       std::unique_lock<std::mutex> lk(image_mutex_);
-      img_con_.wait(lk, [&]() { return !(image_queue_.empty() && active_); });  // active here for out loop notify
+      img_con_.wait(lk, [&]() { return !(image_queue_.empty()) || (!active_); });  // active here for out loop notify
       while (!image_queue_.empty())
       {
         if (!active_)
