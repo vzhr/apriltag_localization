@@ -119,7 +119,7 @@ public:
 
   void camNameCallback(const std_msgs::StringConstPtr& msg)
   {
-
+    stop();
     // setup camera model and image callback
     std::string msg_string = msg->data;
     std::string cam_name;
@@ -159,7 +159,6 @@ public:
     // setup camera model
     CameraPtr camera = CameraFactory::instance()->generateCameraFromYamlFile(cam_config_file);
     tag_detector_->setCam(camera);
-    stop();
     start();
   }
   void imageCallback(const sensor_msgs::ImageConstPtr& image_rect)
