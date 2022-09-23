@@ -389,6 +389,7 @@ protected:
         find_tag = true;
       }
     }
+    if (!find_tag){return false;}
 
     // trans coordinate
     Eigen::Matrix4d matrix_tag_front;
