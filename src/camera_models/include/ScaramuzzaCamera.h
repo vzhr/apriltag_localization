@@ -133,7 +133,7 @@ public:
 
   int parameterCount(void) const;
 
-  std::vector<double> getK(void){};
+  std::vector<double> getK(void){return std::vector<double>{};};
   const Parameters &getParameters(void) const;
   void setParameters(const Parameters &parameters);
 

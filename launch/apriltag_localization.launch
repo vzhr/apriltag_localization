@@ -1,5 +1,6 @@
 <launch>
-  <arg name="launch_prefix" default="gdb -e run --args" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+  <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+<!--  <arg name="launch_prefix" default="gdb -e run &#45;&#45;args" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
   <arg name="node_namespace" default="apriltag_localization_node" />
   <arg name="nodelet_manager" default="tag_nodelet_manager" />
   <!-- Set parameters -->

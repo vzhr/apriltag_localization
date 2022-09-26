@@ -36,16 +36,26 @@ public:
     }
     else
     {
-      ROS_WARN("Does not has cam_config!!\n");
+      cam_config_path_ = "/usr/local/jarvis/config/";
+      ROS_WARN("Does not has cam_config!!, set to: %s", cam_config_path_.c_str());
     }
 
     it_ = std::make_shared<image_transport::ImageTransport>(nh_);
     start_sub_ = mt_nh_.subscribe("tag_cam_name", 1, &ImageNodeLet::camCallback, this, ros::TransportHints().tcp());
+    stop_sub_ = mt_nh_.subscribe("/docking_stop",1, &ImageNodeLet::stopCallback, this,ros::TransportHints().tcp());
+  }
+  void stopCallback(const std_msgs::StringConstPtr&msg){
+    auto m = boost::make_shared<std_msgs::String>();
+    m->data = "stop";
+    camCallback(m);
   }
 
   void camCallback(const std_msgs::StringConstPtr& msg)
   {
     stop();
+    if ("stop" == msg->data){
+      return ;
+    }
     // setup camera model and image callback
     std::string msg_string = msg->data;
     std::string cam_name;
@@ -126,10 +136,11 @@ public:
       {
         if (!capture.read(frame)){continue;}
         auto now = system_clock::now();
+        auto ros_now = ros::Time::now();
         if (first){
           first = false;
           first_img_time = now;
-          publish(first_img_time.time_since_epoch().count(), frame);
+          publish(ros_now, frame);
           ++pub_count;
           continue ;
         }
@@ -142,13 +153,13 @@ public:
             pub_count = 1;
             first_img_time = now;
           }
-          publish(now.time_since_epoch().count(), frame);
+          publish(ros_now, frame);
         }
       }
       else
       {
         first = true;
-        pub_count＝0;
+        pub_count=0;
         capture.release();
         capture.open(video_dev_);
         capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
@@ -156,9 +167,9 @@ public:
       }
     }
   }
-  void publish(uint64_t stamp, cv::Mat img){
+  void publish(const ros::Time& time, cv::Mat img){
     std_msgs::Header header;
-    header.stamp.fromNSec(stamp);
+    header.stamp = time;
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(header, "bgr8", img).toImageMsg();
     image_publisher_.publish(msg);
   }

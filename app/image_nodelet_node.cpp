@@ -1,5 +1,5 @@
 //
-// Created by zhanghairong on 22-9-7.
+// Created by zhanghairong on 22-9-6.
 //
 
 #include <ros/ros.h>
@@ -8,15 +8,12 @@
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "apriltag_localization_with_camera");
+  ros::init(argc, argv, "apriltag_localization_camera_node");
 
   nodelet::Loader nodelet;
   nodelet::M_string remap(ros::names::getRemappings());
   nodelet::V_string nargv;
 
-  nodelet.load(ros::this_node::getName(),
-               "apriltag_localization/ApriltagLocalization",
-               remap, nargv);
   nodelet.load(ros::this_node::getName(),
                "apriltag_localization/ImageNodeLet",
                remap, nargv);

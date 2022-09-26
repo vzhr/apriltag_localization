@@ -31,6 +31,7 @@ public:
     nh_ = getNodeHandle();
     mt_nh_ = getMTNodeHandle();
     pnh_ = getPrivateNodeHandle();
+    mt_pnh_ = getMTPrivateNodeHandle();
     if (pnh_.hasParam("cam_config"))
     {
       pnh_.getParam("cam_config", cam_config_path_);
@@ -47,14 +48,17 @@ public:
 
     tag_detector_ = std::shared_ptr<TagDetector>(new TagDetector(pnh_));
     draw_tag_detections_image_ = getAprilTagOption<bool>(pnh_, "publish_tag_detections_image", false);
-    it_ = std::shared_ptr<image_transport::ImageTransport>(new image_transport::ImageTransport(nh_));
-    tag_detections_publisher_ = nh_.advertise<AprilTagDetectionArray>("tag_detections", 1);
+    it_ = std::make_shared<image_transport::ImageTransport>(mt_nh_);
+    tag_detections_publisher_ = mt_pnh_.advertise<AprilTagDetectionArray>("tag_detections", 1);
     if (draw_tag_detections_image_)
     {
       tag_detections_image_publisher_ = it_->advertise("tag_detections_image", 1);
     }
     cam_name_sub_ = mt_nh_.subscribe("tag_cam_name", 10, &ApriltagLocalizationNodeLet::camNameCallback, this,
                                      ros::TransportHints().tcp());
+    stop_sub_ = mt_nh_.subscribe("/stop_docking", 10, &ApriltagLocalizationNodeLet::stopCallback, this,
+                                 ros::TransportHints().tcp());
+
     odom_sub_ = mt_nh_.subscribe("odom", 10, &ApriltagLocalizationNodeLet::odomCallback, this);
     pose_pub_ = mt_nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
   }
@@ -89,17 +93,10 @@ public:
       T_odom_baselink.translation() = Eigen::Vector3d(pose.x, pose.y, pose.z);
       T_odom_baselink.linear() = Eigen::Quaterniond(twist.w, twist.x, twist.y, twist.z).toRotationMatrix();
       Eigen::Isometry3d T_tag_baselink = *T_correct_tag_odom_ * T_odom_baselink;
-      auto pose_msg = boost::make_shared<geometry_msgs::PoseStamped>();
-      pose_msg->header.frame_id = select_tag_name_;
-      pose_msg->header.stamp = ros::Time::now();
-      pose_msg->pose.position.x = T_tag_baselink.translation().x();
-      pose_msg->pose.position.y = T_tag_baselink.translation().y();
-      pose_msg->pose.position.z = T_tag_baselink.translation().z();
-      Eigen::Quaterniond q(T_tag_baselink.linear());
-      pose_msg->pose.orientation.w = q.w();
-      pose_msg->pose.orientation.x = q.x();
-      pose_msg->pose.orientation.y = q.y();
-      pose_msg->pose.orientation.z = q.z();
+      geometry_msgs::PoseStamped pose_msg;
+      pose_msg.pose = isometry2pose(T_tag_baselink);
+      pose_msg.header.frame_id = select_tag_name_;
+      pose_msg.header.stamp = msg->header.stamp;
       pose_pub_.publish(pose_msg);
 
       Eigen::Matrix3d rotation = T_tag_baselink.linear();
@@ -117,9 +114,18 @@ public:
     }
   }
 
+  void stopCallback(const std_msgs::StringConstPtr& msg){
+    auto m = boost::make_shared<std_msgs::String>();
+    m->data = "stop";
+    camNameCallback(m);
+  }
+
   void camNameCallback(const std_msgs::StringConstPtr& msg)
   {
     stop();
+    if (msg->data == "stop"){
+      return ;
+    }
     // setup camera model and image callback
     std::string msg_string = msg->data;
     std::string cam_name;
@@ -202,7 +208,6 @@ public:
     stop();
   }
 
-protected:
   void processImg()
   {
     while (ros::ok() && active_)
@@ -233,7 +238,7 @@ protected:
         // visualize
         // Publish the camera image overlaid by outlines of the detected tags and
         // their payload values
-        if (draw_tag_detections_image_)
+        if (draw_tag_detections_image_ && tag_detections_image_publisher_.getNumSubscribers() > 0)
         {
           tag_detector_->drawDetections(cv_image);
           tag_detections_image_publisher_.publish(cv_image->toImageMsg());
@@ -489,12 +494,12 @@ protected:
     img_con_.notify_all();  // for out process loop
     if (process_th_)
     {
-      ROS_INFO("process join");
+      ROS_INFO("[apriltag localization]: process join");
       process_th_->join();
     }
-    ROS_INFO("apriltag localization: stop0");
+    ROS_INFO("[apriltag localization]: stop0");
     process_th_.reset();
-    ROS_INFO("apriltag localization: stop1");
+    ROS_INFO("[apriltag localization]: stop1");
   }
   void start()
   {
@@ -516,6 +521,7 @@ private:
   ros::NodeHandle nh_;
   ros::NodeHandle mt_nh_;
   ros::NodeHandle pnh_;
+  ros::NodeHandle mt_pnh_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -530,6 +536,7 @@ private:
   ros::Publisher tag_detections_publisher_;
   ros::Publisher pose_pub_;
   ros::Subscriber cam_name_sub_;
+  ros::Subscriber stop_sub_;
   ros::Subscriber odom_sub_;
   std::string cam_config_path_;
 
