@@ -1,8 +1,9 @@
 <launch>
-  <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
-<!--  <arg name="launch_prefix" default="gdb -e run &#45;&#45;args" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
+<!--  <arg name="launch_prefix" default="" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
+  <arg name="launch_prefix" default="gdb -e run --args" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
   <arg name="node_namespace" default="apriltag_localization_node" />
-  <arg name="nodelet_manager" default="tag_nodelet_manager" />
+  <arg name="cam_config"  default="$(find apriltag_localization)/config/"/>
+  <arg name="odom_topic"  default="/jarvis/odom"/>
   <!-- Set parameters -->
   <rosparam command="load" file="$(find apriltag_localization)/config/settings.yaml" ns="$(arg node_namespace)" />
   <rosparam command="load" file="$(find apriltag_localization)/config/tags.yaml" ns="$(arg node_namespace)" />
@@ -10,7 +11,11 @@
 <!--  <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen"/>-->
   <node pkg="apriltag_localization" type="apriltag_localization_node" name="$(arg node_namespace)" clear_params="true" output="screen" launch-prefix="$(arg launch_prefix)" >
     <!-- Remap topics from those used in code to those on the ROS network -->
+    <!-- Remap topics from those used in code to those on the ROS network -->
+    <remap from="odom"  to="$(arg odom_topic)"/>
     <param name="publish_tag_detections_image" type="bool" value="true" />      <!-- default: false -->
-    <param name="cam_config" type="string" value="$(find apriltag_localization)/config/" />      <!-- default: false -->
+    <param name="cam_config" type="string" value="$(find apriltag_localization)/config/" />
   </node>
+  <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle5' "  />
+  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>
 </launch>

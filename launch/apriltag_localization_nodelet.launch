@@ -1,10 +1,10 @@
 <launch>
-<!--  <arg name="launch_prefix" default="" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
-  <arg name="launch_prefix" default="gdb -e run --args" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+  <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+<!--  <arg name="launch_prefix" default="gdb -e run &#45;&#45;args" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
   <arg name="nodelet_manager" default="apriltag_nodelet_manager" />
   <arg name="apriltag_localization_name" default="apriltag_localization_node" />
-  <arg name="cam_config"  value="$(find apriltag_localization)/config/"/>
-  <arg name="odom_topic"  value="/jarvis/odom"/>
+  <arg name="cam_config"  default="$(find apriltag_localization)/config/"/>
+  <arg name="odom_topic"  default="/jarvis/odom"/>
 
   <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager)" args="manager" output="screen" launch-prefix="$(arg launch_prefix)" />
   <node pkg="nodelet" type="nodelet" name="$(arg apriltag_localization_name)" args="load apriltag_localization/ApriltagLocalization $(arg nodelet_manager)"
