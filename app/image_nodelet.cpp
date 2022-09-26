@@ -85,6 +85,13 @@ public:
     std::string image_topic = fs["image_topic"];
     image_topic_ = image_topic;
     ROS_INFO("image nodelet: pub image topic %s", image_topic_.c_str());
+    cam_name_ = "cam1";
+    if (!fs["camera_name"].isNone()){
+      std::string cam_name = fs["camera_name"];
+      cam_name_ = std::move(cam_name);
+    }
+
+
     if (fs["pub_freq"].isNone())
     {
       pub_freq_ = 30;
@@ -115,6 +122,7 @@ public:
     {
       pub_th_->join();
     }
+    pub_th_.reset();
   }
   void publishImg()
   {
@@ -170,6 +178,7 @@ public:
   void publish(const ros::Time& time, cv::Mat img){
     std_msgs::Header header;
     header.stamp = time;
+    header.frame_id = cam_name_;
     sensor_msgs::ImagePtr msg = cv_bridge::CvImage(header, "bgr8", img).toImageMsg();
     image_publisher_.publish(msg);
   }
@@ -185,6 +194,7 @@ private:
 
   double pub_freq_;  // frequency of publish image
   std::string cam_config_path_;
+  std::string cam_name_;
   std::string image_topic_;
   int video_dev_;
 

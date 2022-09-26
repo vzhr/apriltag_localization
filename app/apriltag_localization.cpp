@@ -227,11 +227,6 @@ public:
         lk.unlock();
         std::vector<std::string> detection_names;
         AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel(cv_image, detection_names);
-        if (tag_result.detections.empty())
-        {
-          lk.lock();
-          continue;
-        }
 
         // Publish detected tags in the image by AprilTag 2
         tag_detections_publisher_.publish(tag_result);
@@ -243,7 +238,13 @@ public:
           tag_detector_->drawDetections(cv_image);
           tag_detections_image_publisher_.publish(cv_image->toImageMsg());
         }
-        Eigen::VectorXf measure;
+        if (tag_result.detections.empty())
+        {
+          lk.lock();
+          continue;
+        }
+
+        Eigen::VectorXf measure(6);
         bool find_tag = getMeasurement(tag_result, detection_names, measure);
         if (find_tag)
         {
@@ -396,6 +397,7 @@ public:
     }
     if (!find_tag){return false;}
 
+    measure.resize(6);
     // trans coordinate
     Eigen::Matrix4d matrix_tag_front;
     // clang-format off
