@@ -88,10 +88,10 @@ public:
     if (T_correct_tag_odom_)
     {
       auto& pose = msg->pose.pose.position;
-      auto& twist = msg->pose.pose.orientation;
+      auto& orientation = msg->pose.pose.orientation;
       Eigen::Isometry3d T_odom_baselink = Eigen::Isometry3d::Identity();
       T_odom_baselink.translation() = Eigen::Vector3d(pose.x, pose.y, pose.z);
-      T_odom_baselink.linear() = Eigen::Quaterniond(twist.w, twist.x, twist.y, twist.z).toRotationMatrix();
+      T_odom_baselink.linear() = Eigen::Quaterniond(orientation.w, orientation.x, orientation.y, orientation.z).toRotationMatrix();
       Eigen::Isometry3d T_tag_baselink = *T_correct_tag_odom_ * T_odom_baselink;
       geometry_msgs::PoseStamped pose_msg;
       pose_msg.pose = isometry2pose(T_tag_baselink);
