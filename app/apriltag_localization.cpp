@@ -348,7 +348,7 @@ public:
     pose_estimator_->correct(stamp, measure);
     cleanOldOdomData(stamp - 1.0);  // for interpolate data
     /// get correction result
-    Eigen::Isometry3d trans = pose_estimator_->trans();
+    Eigen::Isometry3d trans = pose_estimator_->matrix();
     Eigen::Isometry3d odom_pose = Eigen::Isometry3d::Identity();
     auto& pose = odom_data.back()->pose.pose;
     odom_pose.translation() = Eigen::Vector3d(pose.position.x, pose.position.y, pose.position.z);
@@ -398,7 +398,7 @@ public:
     if (!find_tag){return false;}
 
     measure.resize(6);
-    // trans coordinate
+    // matrix coordinate
     Eigen::Matrix4d matrix_tag_front;
     // clang-format off
     matrix_tag_front <<
@@ -410,8 +410,9 @@ public:
 
     Eigen::Isometry3d T_tag_front(matrix_tag_front);
     Eigen::Isometry3d T_baselink_cam_tag_front = T_baselink_cam_ * T_cam_tag * T_tag_front;
-    Eigen::Vector3f translation = T_baselink_cam_tag_front.matrix().topRightCorner<3, 1>().cast<float>();
-    Eigen::Matrix3f rotation = T_baselink_cam_tag_front.matrix().topLeftCorner<3, 3>().cast<float>();
+    Eigen::Isometry3d T_front_baselink = T_baselink_cam_tag_front.inverse();
+    Eigen::Vector3f translation = T_front_baselink.matrix().topRightCorner<3, 1>().cast<float>();
+    Eigen::Matrix3f rotation = T_front_baselink.matrix().topLeftCorner<3, 3>().cast<float>();
     Eigen::AngleAxisf angle_axisf(rotation);
 
     measure.tail(3) = translation;

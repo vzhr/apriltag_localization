@@ -72,7 +72,7 @@ void PoseEstimator::correct(double timestamp, const Eigen::VectorXf& measure)
   }
   ukf->correct(measure);
 }
-Eigen::Isometry3d PoseEstimator::trans()
+Eigen::Isometry3d PoseEstimator::matrix()
 {
   Eigen::Isometry3d trans = Eigen::Isometry3d::Identity();
   Eigen::AngleAxisd angle_axisd;

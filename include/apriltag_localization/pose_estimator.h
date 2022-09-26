@@ -30,7 +30,7 @@ public:
   double stamp() const {return stamp_;}
   double lastCorrection() const{return last_correction_;}
 
-  Eigen::Isometry3d trans();
+  Eigen::Isometry3d matrix();
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 private:
   double stamp_;
