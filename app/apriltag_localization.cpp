@@ -207,7 +207,6 @@ public:
       std::lock_guard<std::mutex> lk(image_mutex_);
       image_queue_.push_back(cv_image_);
     }
-    ROS_INFO("push img, notify");
     img_con_.notify_one();
   }
   virtual ~ApriltagLocalizationNodeLet()
@@ -221,7 +220,6 @@ public:
     {
       std::unique_lock<std::mutex> lk(image_mutex_);
       img_con_.wait(lk);
-      ROS_INFO("img awake");
       if (!active_){
         // active here for out loop notify
         return ;
@@ -268,7 +266,6 @@ public:
           if (cv_image->header.stamp.toSec() > odom_time_right){
             using namespace std::chrono_literals;
             std::this_thread::sleep_for(10ms);
-            ROS_INFO("sleep 10ms");
             lk.lock();
             break ;
           }
@@ -347,7 +344,6 @@ public:
 
   void update(double stamp, const Eigen::VectorXf& measure)
   {
-    ROS_INFO("in update");
     if (!pose_estimator_)
     {
       ROS_WARN("pose_estimator_ not construct!");
@@ -368,8 +364,6 @@ public:
 
     double time0 = pose_estimator_->lastCorrection();
     double time1 = stamp;
-    std::cout <<std::fixed <<"time0: " << time0 << ", time1: " << time1 << std::endl;
-    std::cout << "odom: " << odom_queue_.back()->header.stamp.toSec() << std::endl;
     std::vector<nav_msgs::OdometryConstPtr> odom_data = select_odom(time0, time1);
     if (odom_data.size() < 2)
     {
@@ -414,7 +408,6 @@ public:
             .toRotationMatrix();
 
     T_correct_tag_odom_ = trans * odom_pose.inverse();
-    std::cout << "T_correct_tag_odom_: \n" << T_correct_tag_odom_.get().matrix() << std::endl;
   }
 
   bool getMeasurement(const AprilTagDetectionArray& tag_result, const std::vector<std::string>& detection_names,
