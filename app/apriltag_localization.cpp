@@ -72,7 +72,6 @@ public:
     {
       {
         std::lock_guard<std::mutex> lk(odom_mutex_);
-        ROS_INFO("clean odom");
         odom_queue_.clear();
       }
       return;
@@ -84,7 +83,6 @@ public:
       while (!odom_queue_.empty() &&
              odom_queue_.back()->header.stamp.toSec() - odom_queue_.front()->header.stamp.toSec() > 50.0)
       {
-        ROS_INFO("pop odom");
         odom_queue_.pop_front();
       }
     }
@@ -111,7 +109,7 @@ public:
   }
   void cleanOldOdomData(double stamp)
   {
-    return ;
+
     std::lock_guard<std::mutex> lk(odom_mutex_);
     while (!odom_queue_.empty() && odom_queue_.front()->header.stamp.toSec() < stamp)
     {
@@ -221,13 +219,12 @@ public:
       std::unique_lock<std::mutex> lk(image_mutex_);
       img_con_.wait(lk);
       if (!active_){
-        // active here for out loop notify
+        // judge active here for out loop notify
         return ;
       }
       if (image_queue_.empty()){
         continue ;
       }
-//[&]() { ROS_INFO("img awake"); return !(image_queue_.empty()) || (!active_); });  // active here for out loop notify
       while (!image_queue_.empty())
       {
         if (!active_)

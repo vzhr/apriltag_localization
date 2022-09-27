@@ -1,7 +1,7 @@
 %YAML:1.0
 ---
 video_dev: 4
-pub_freq: 30
+pub_freq: 10
 image_topic: "/camera/color/image_raw"
 camera_name: cam1
 model_type: PINHOLE

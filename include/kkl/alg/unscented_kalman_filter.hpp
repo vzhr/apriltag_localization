@@ -164,8 +164,6 @@ public:
     }
 //    std::cout << "expected_measurement_cov: \n" << expected_measurement_cov << std::endl;
 //    std::cout << "expected_measurement_cov inverse: \n" <<expected_measurement_cov.inverse() << std::endl;
-    std::cout << "expected_measurement_mean: \n" <<expected_measurement_mean.transpose() << std::endl;
-    std::cout << "measurement: \n" << measurement.transpose() << std::endl;
 
     // calculated transformed covariance
     MatrixXt sigma = MatrixXt::Zero(N + K, K);
@@ -184,6 +182,9 @@ public:
     mean = ext_mean.topLeftCorner(N, 1);
     cov = ext_cov.topLeftCorner(N, N);
     std::cout << "mean: \n" << mean.transpose() << std::endl;
+    std::cout << "expected_measurement_mean: \n" <<expected_measurement_mean.transpose() << std::endl;
+    std::cout << "measurement: \n" << measurement.transpose() << std::endl;
+
 //    std::cout << "cov: \n" << cov << std::endl;
 
   }

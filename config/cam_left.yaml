@@ -1,7 +1,7 @@
 %YAML:1.0
 ---
 video_dev: 0
-pub_freq: 30
+pub_freq: 10
 image_topic: "/camera/infra1/image_rect_raw"
 camera_name: cam_left
 model_type: PINHOLE

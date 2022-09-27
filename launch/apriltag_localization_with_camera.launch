@@ -21,6 +21,6 @@
     <param name="cam_config" type="string" value="$(arg cam_config)" />
   </node>
   <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle5' "  />
-  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>
+<!--  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>-->
 
 </launch>
