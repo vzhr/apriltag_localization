@@ -1,6 +1,7 @@
 <launch>
 <!--  <arg name="launch_prefix" default="" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
-  <arg name="launch_prefix" default="gdb -e run --args" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
+<!--  <arg name="launch_prefix" default="valgrind &#45;&#45;tool=memcheck &#45;&#45;leak-check=yes &#45;&#45;show-leak-kinds=definite" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
+  <arg name="launch_prefix" default="gdb -ex run --args" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
   <arg name="node_namespace" default="apriltag_localization_node" />
   <arg name="cam_config"  default="$(find apriltag_localization)/config/"/>
   <arg name="odom_topic"  default="/jarvis/odom"/>

@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
-  apriltag_ros
 )
 
 find_package(Eigen3 REQUIRED)
@@ -35,19 +34,34 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 ENDIF()
 
 
-#add_compile_options("-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
-add_compile_options("-O3" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
+add_compile_options("-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
+#add_compile_options("-O3" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
 
 # Note: These options have been turned off to allow for binary releases -
 # in local builds, they can be reactivated to achieve higher performance.
  if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "x86_64" OR "x86_32")
-   message("enabling msse2 for x86_64 or x86_32 architecture")
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -msse2 ")
+#   message("enabling msse2 for x86_64 or x86_32 architecture")
+#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -msse2 ")
  endif()
  if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm")
    message("enabling -mfpu=neon -mfloat-abi=softfp for ARM architecture")
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mcpu=cortex-a9 -mfpu=neon -mtune=cortex-a9 -mvectorize-with-neon-quad -ffast-math ")
  endif()
+
+
+
+add_message_files(
+        FILES
+        AprilTagDetection.msg
+        AprilTagDetectionArray.msg
+)
+
+generate_messages(
+        DEPENDENCIES
+        geometry_msgs
+        sensor_msgs
+        std_msgs
+)
 
 
 # Extract the include directories and libraries from apriltag::apriltag as catkin_package() does not support modern cmake.
@@ -98,6 +112,7 @@ add_library(apriltag_localization
         ${CAM_LIBRARY_SOURCES}
         )
 target_link_libraries(apriltag_localization ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} apriltag::apriltag Eigen3::Eigen)
+add_dependencies(apriltag_localization ${PROJECT_NAME}_generate_messages_cpp)
 target_compile_options(apriltag_localization PRIVATE "-std=c++14")
 
 add_library(image_nodelet

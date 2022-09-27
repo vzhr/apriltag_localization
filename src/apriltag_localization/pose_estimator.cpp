@@ -15,12 +15,12 @@ PoseEstimator::PoseEstimator() : init_(false)
   stamp_ = -1;
 
   process_noise_ = Eigen::MatrixXf::Identity(6, 6);
-  process_noise_.middleRows(0, 3) *= 0.1;
-  process_noise_.middleRows(3, 3) *= 0.01;
+  process_noise_.middleRows(0, 3) *= 0.01;
+  process_noise_.middleRows(3, 3) *= 0.1;
 
   measure_noise_ = Eigen::MatrixXf::Identity(6, 6);
-  measure_noise_.middleRows(0, 3) *= 0.01;
-  measure_noise_.middleRows(3, 3) *= 0.001;
+  measure_noise_.middleRows(0, 3) *= 0.001;
+  measure_noise_.middleRows(3, 3) *= 0.01;
 
   Eigen::VectorXf mean(6);
   mean.setZero();
@@ -63,6 +63,7 @@ void PoseEstimator::predict_va_rk4(double dt, Eigen::VectorXf& control)
 void PoseEstimator::correct(double timestamp, const Eigen::VectorXf& measure)
 {
   assert(measure.rows() == 6);
+
   last_correction_ = timestamp;
   if (!init_){
     init_ = true;

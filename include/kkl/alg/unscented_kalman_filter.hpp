@@ -9,7 +9,7 @@
 
 #include <random>
 #include <Eigen/Dense>
-
+#include <iostream>
 namespace kkl {
   namespace alg {
 
@@ -144,10 +144,8 @@ public:
     ext_mean_pred.topLeftCorner(N, 1) = VectorXt(mean);
     ext_cov_pred.topLeftCorner(N, N) = MatrixXt(cov);
     ext_cov_pred.bottomRightCorner(K, K) = measurement_noise;
-
     ensurePositiveFinite(ext_cov_pred);
     computeSigmaPoints(ext_mean_pred, ext_cov_pred, ext_sigma_points);
-
     // unscented transform
     expected_measurements.setZero();
     for (int i = 0; i < ext_sigma_points.rows(); i++) {
@@ -164,6 +162,10 @@ public:
       VectorXt diff = expected_measurements.row(i).transpose() - expected_measurement_mean;
       expected_measurement_cov += ext_weights[i] * diff * diff.transpose();
     }
+//    std::cout << "expected_measurement_cov: \n" << expected_measurement_cov << std::endl;
+//    std::cout << "expected_measurement_cov inverse: \n" <<expected_measurement_cov.inverse() << std::endl;
+//    std::cout << "expected_measurement_mean: \n" <<expected_measurement_mean.transpose() << std::endl;
+    std::cout << "measurement: \n" << measurement.transpose() << std::endl;
 
     // calculated transformed covariance
     MatrixXt sigma = MatrixXt::Zero(N + K, K);
@@ -181,6 +183,9 @@ public:
 
     mean = ext_mean.topLeftCorner(N, 1);
     cov = ext_cov.topLeftCorner(N, N);
+    std::cout << "mean: \n" << mean.transpose() << std::endl;
+    std::cout << "cov: \n" << cov << std::endl;
+
   }
 
   /*			getter			*/

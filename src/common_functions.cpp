@@ -44,7 +44,8 @@
 
 namespace apriltag_ros
 {
-
+using apriltag_localization::AprilTagDetectionArray;
+using apriltag_localization::AprilTagDetection;
 TagDetector::TagDetector(ros::NodeHandle pnh) :
     family_(getAprilTagOption<std::string>(pnh, "tag_family", "tag36h11")),
     threads_(getAprilTagOption<int>(pnh, "tag_threads", 4)),
@@ -337,7 +338,7 @@ AprilTagDetectionArray TagDetector::detectTags (
         makeTagPose(transform, rot_quaternion, image->header);
 
     // Add the detection to the back of the tag detection array
-    AprilTagDetection tag_detection;
+    apriltag_localization::AprilTagDetection tag_detection;
     tag_detection.pose = tag_pose;
     tag_detection.id.push_back(detection->id);
     tag_detection.size.push_back(tag_size);
@@ -373,7 +374,7 @@ AprilTagDetectionArray TagDetector::detectTags (
           makeTagPose(transform, rot_quaternion, image->header);
 
       // Add the detection to the back of the tag detection array
-      AprilTagDetection tag_detection;
+      apriltag_localization::AprilTagDetection tag_detection;
       tag_detection.pose = bundle_pose;
       tag_detection.id = bundle.bundleIds();
       tag_detection.size = bundle.bundleSizes();

@@ -64,8 +64,8 @@
 
 #include <apriltag.h>
 
-#include "apriltag_ros/AprilTagDetection.h"
-#include "apriltag_ros/AprilTagDetectionArray.h"
+#include "apriltag_localization/AprilTagDetection.h"
+#include "apriltag_localization/AprilTagDetectionArray.h"
 #include "camera_models/include/Camera.h"
 namespace apriltag_ros
 {
@@ -211,7 +211,7 @@ class TagDetector
       const std_msgs::Header& header);
 
   // Detect tags in an image
-  AprilTagDetectionArray detectTags(
+  apriltag_localization::AprilTagDetectionArray detectTags(
       const cv_bridge::CvImagePtr& image,
       const sensor_msgs::CameraInfoConstPtr& camera_info);
 
@@ -240,7 +240,7 @@ class TagDetector
   void setCam(CameraPtr& cam_model){
     cam_ = cam_model;}
   CameraPtr& getCam(){return cam_;}
-  AprilTagDetectionArray detectTagsWithModel(const cv_bridge::CvImagePtr& image,
+  apriltag_localization::AprilTagDetectionArray detectTagsWithModel(const cv_bridge::CvImagePtr& image,
                                              std::vector<std::string>& detection_name_vec);
 };
 

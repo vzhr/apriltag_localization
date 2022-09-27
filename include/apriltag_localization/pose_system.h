@@ -155,7 +155,7 @@ public:
   {
     VectorXt observation(6);
     observation.middleRows(0, 3) = state.middleRows(0, 3);
-    observation.middleRows(3, 6) = state.middleRows(3, 3);
+    observation.middleRows(3, 3) = state.middleRows(3, 3);
 
     return observation;
   }

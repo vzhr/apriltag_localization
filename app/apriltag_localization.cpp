@@ -4,6 +4,7 @@
 #include <condition_variable>
 #include <memory>
 #include <thread>
+#include <chrono>
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -23,6 +24,7 @@ using namespace apriltag_ros;
 class ApriltagLocalizationNodeLet : public nodelet::Nodelet
 {
 public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ApriltagLocalizationNodeLet() : tf_buffer_(), tf_listener_(tf_buffer_), T_correct_tag_odom_(boost::none)
   {
   }
@@ -60,15 +62,17 @@ public:
                                  ros::TransportHints().tcp());
 
     odom_sub_ = mt_nh_.subscribe("odom", 10, &ApriltagLocalizationNodeLet::odomCallback, this);
-    pose_pub_ = mt_nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
+    pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
   }
 
   void odomCallback(const nav_msgs::OdometryConstPtr& msg)
   {
+    ROS_DEBUG("odom_income");
     if (!active_)
     {
       {
         std::lock_guard<std::mutex> lk(odom_mutex_);
+        ROS_INFO("clean odom");
         odom_queue_.clear();
       }
       return;
@@ -80,10 +84,10 @@ public:
       while (!odom_queue_.empty() &&
              odom_queue_.back()->header.stamp.toSec() - odom_queue_.front()->header.stamp.toSec() > 50.0)
       {
+        ROS_INFO("pop odom");
         odom_queue_.pop_front();
       }
     }
-
     // publish pose
     if (T_correct_tag_odom_)
     {
@@ -92,7 +96,7 @@ public:
       Eigen::Isometry3d T_odom_baselink = Eigen::Isometry3d::Identity();
       T_odom_baselink.translation() = Eigen::Vector3d(pose.x, pose.y, pose.z);
       T_odom_baselink.linear() = Eigen::Quaterniond(orientation.w, orientation.x, orientation.y, orientation.z).toRotationMatrix();
-      Eigen::Isometry3d T_tag_baselink = *T_correct_tag_odom_ * T_odom_baselink;
+      Eigen::Isometry3d T_tag_baselink = T_correct_tag_odom_.get() * T_odom_baselink;
       geometry_msgs::PoseStamped pose_msg;
       pose_msg.pose = isometry2pose(T_tag_baselink);
       pose_msg.header.frame_id = select_tag_name_;
@@ -101,12 +105,13 @@ public:
 
       Eigen::Matrix3d rotation = T_tag_baselink.linear();
       double theta = std::atan2(rotation(1,0), rotation(0,0));
-      ROS_DEBUG("theta: %f", theta);
-      ROS_DEBUG_STREAM("pose: " << T_tag_baselink.translation().transpose());
+      ROS_INFO("theta: %f", theta);
+      ROS_INFO_STREAM("pose: " << T_tag_baselink.translation().transpose());
     }
   }
   void cleanOldOdomData(double stamp)
   {
+    return ;
     std::lock_guard<std::mutex> lk(odom_mutex_);
     while (!odom_queue_.empty() && odom_queue_.front()->header.stamp.toSec() < stamp)
     {
@@ -124,6 +129,7 @@ public:
   {
     stop();
     if (msg->data == "stop"){
+      ROS_INFO("stop");
       return ;
     }
     // setup camera model and image callback
@@ -201,6 +207,7 @@ public:
       std::lock_guard<std::mutex> lk(image_mutex_);
       image_queue_.push_back(cv_image_);
     }
+    ROS_INFO("push img, notify");
     img_con_.notify_one();
   }
   virtual ~ApriltagLocalizationNodeLet()
@@ -213,7 +220,16 @@ public:
     while (ros::ok() && active_)
     {
       std::unique_lock<std::mutex> lk(image_mutex_);
-      img_con_.wait(lk, [&]() { return !(image_queue_.empty()) || (!active_); });  // active here for out loop notify
+      img_con_.wait(lk);
+      ROS_INFO("img awake");
+      if (!active_){
+        // active here for out loop notify
+        return ;
+      }
+      if (image_queue_.empty()){
+        continue ;
+      }
+//[&]() { ROS_INFO("img awake"); return !(image_queue_.empty()) || (!active_); });  // active here for out loop notify
       while (!image_queue_.empty())
       {
         if (!active_)
@@ -223,6 +239,42 @@ public:
         }
 
         cv_bridge::CvImagePtr cv_image = image_queue_.front();
+        lk.unlock();
+        // in the start time, the image is old than odom, pop
+        if (!pose_estimator_->isInit()){
+          double odom_time_left = -1.0;
+          {
+            std::lock_guard<std::mutex> odom_lk(odom_mutex_);
+            if (!odom_queue_.empty()){
+              odom_time_left = odom_queue_.front()->header.stamp.toSec();
+            }
+          }
+          if (cv_image->header.stamp.toSec() < odom_time_left || odom_time_left < 0){
+            lk.lock();
+            image_queue_.pop_front();
+            ROS_INFO("pop image");
+            continue ;
+          }
+        }
+        // on running, image timestamp new than odom, waiting for 10ms
+        else{
+          double odom_time_right = std::numeric_limits<double>::max();
+          {
+            std::lock_guard<std::mutex> odom_lk(odom_mutex_);
+            if (!odom_queue_.empty()){
+              odom_time_right = odom_queue_.back()->header.stamp.toSec();
+            }
+          }
+          if (cv_image->header.stamp.toSec() > odom_time_right){
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(10ms);
+            ROS_INFO("sleep 10ms");
+            lk.lock();
+            break ;
+          }
+        }
+
+        lk.lock();
         image_queue_.pop_front();
         lk.unlock();
         std::vector<std::string> detection_names;
@@ -295,6 +347,7 @@ public:
 
   void update(double stamp, const Eigen::VectorXf& measure)
   {
+    ROS_INFO("in update");
     if (!pose_estimator_)
     {
       ROS_WARN("pose_estimator_ not construct!");
@@ -303,6 +356,7 @@ public:
     // if we don't have initial pose, use correct to set
     if (!pose_estimator_->isInit())
     {
+      ROS_INFO("pose_estimator init correct");
       pose_estimator_->correct(stamp, measure);
       return;
     }
@@ -314,11 +368,14 @@ public:
 
     double time0 = pose_estimator_->lastCorrection();
     double time1 = stamp;
+    std::cout <<std::fixed <<"time0: " << time0 << ", time1: " << time1 << std::endl;
+    std::cout << "odom: " << odom_queue_.back()->header.stamp.toSec() << std::endl;
     std::vector<nav_msgs::OdometryConstPtr> odom_data = select_odom(time0, time1);
     if (odom_data.size() < 2)
     {
       // restart estimator
-      pose_estimator_->stop();
+      ROS_INFO("update: odom_data < 2, stop");
+//      pose_estimator_->stop();
       pose_estimator_->correct(stamp, measure);
       return;
     }
@@ -355,7 +412,9 @@ public:
     odom_pose.linear() =
         Eigen::Quaterniond(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z)
             .toRotationMatrix();
-    *T_correct_tag_odom_ = trans * odom_pose.inverse();
+
+    T_correct_tag_odom_ = trans * odom_pose.inverse();
+    std::cout << "T_correct_tag_odom_: \n" << T_correct_tag_odom_.get().matrix() << std::endl;
   }
 
   bool getMeasurement(const AprilTagDetectionArray& tag_result, const std::vector<std::string>& detection_names,
@@ -411,18 +470,18 @@ public:
     Eigen::Isometry3d T_tag_front(matrix_tag_front);
     Eigen::Isometry3d T_baselink_cam_tag_front = T_baselink_cam_ * T_cam_tag * T_tag_front;
     Eigen::Isometry3d T_front_baselink = T_baselink_cam_tag_front.inverse();
-    Eigen::Vector3f translation = T_front_baselink.matrix().topRightCorner<3, 1>().cast<float>();
-    Eigen::Matrix3f rotation = T_front_baselink.matrix().topLeftCorner<3, 3>().cast<float>();
-    Eigen::AngleAxisf angle_axisf(rotation);
-
-    measure.tail(3) = translation;
+    Eigen::Vector3d translation = T_front_baselink.translation();
+    Eigen::Matrix3d rotation = T_front_baselink.linear();
+    Eigen::AngleAxisf angle_axisf(rotation.cast<float>());
     measure.head(3) = angle_axisf.angle() * angle_axisf.axis();
+    measure.tail(3) = translation.cast<float>();
     return find_tag;
   }
 
   std::vector<nav_msgs::OdometryConstPtr> select_odom(double time0, double time1)
   {
     std::vector<nav_msgs::OdometryConstPtr> odom_data;
+    std::lock_guard<std::mutex> lk(odom_mutex_);
     if (odom_queue_.empty())
     {
       return odom_data;
@@ -467,6 +526,16 @@ public:
         }
       }
     }
+    if (odom_data.empty()){
+      return odom_data;
+    }
+
+    if (odom_data.size() == 1){
+      nav_msgs::OdometryPtr data = boost::make_shared<::nav_msgs::Odometry>();
+      data->header=odom_data.back()->header;
+      data->header.stamp.fromSec(time1);
+      odom_data.push_back(data);
+    }
 
     // this case for solve latest odom time < time1
     if (std::abs(time1 - odom_data.back()->header.stamp.toSec()) > 1e-3)
@@ -489,6 +558,7 @@ public:
   }
   void stop()
   {
+    ROS_INFO("stop...");
     active_ = false;
     camera_image_subscriber_.shutdown();
     select_tag_name_.clear();
@@ -506,6 +576,7 @@ public:
   }
   void start()
   {
+    ROS_INFO("start...");
     // start
     active_ = true;
     // setup subscribe
