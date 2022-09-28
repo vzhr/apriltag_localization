@@ -62,6 +62,8 @@ public:
                                  ros::TransportHints().tcp());
 
     odom_sub_ = mt_nh_.subscribe("odom", 10, &ApriltagLocalizationNodeLet::odomCallback, this);
+    odom_topic_ = odom_sub_.getTopic();
+    ROS_INFO("odom subscribe on: %s", odom_topic_.c_str());
     pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
   }
 
@@ -87,7 +89,7 @@ public:
       }
     }
     // publish pose
-    if (T_correct_tag_odom_)
+    if (T_correct_tag_odom_ && active_)
     {
       auto& pose = msg->pose.pose.position;
       auto& orientation = msg->pose.pose.orientation;
@@ -103,8 +105,8 @@ public:
 
       Eigen::Matrix3d rotation = T_tag_baselink.linear();
       double theta = std::atan2(rotation(1,0), rotation(0,0));
-      ROS_INFO("theta: %f", theta);
-      ROS_INFO_STREAM("pose: " << T_tag_baselink.translation().transpose());
+      ROS_DEBUG("theta: %f", theta);
+      ROS_DEBUG_STREAM("pose: " << T_tag_baselink.translation().transpose());
     }
   }
   void cleanOldOdomData(double stamp)
@@ -202,6 +204,33 @@ public:
       return;
     }
     {
+
+      cv::Mat gray_image;
+      cv::cvtColor(cv_image_->image, gray_image, cv::COLOR_BGR2GRAY);
+      enum class METHOD{
+        NONE = 0,
+        HISTOGRAM = 1,
+        CLAHE = 2
+      };
+      METHOD method = METHOD::HISTOGRAM;
+
+      switch (method)
+      {
+        case METHOD::NONE:
+          break;
+        case METHOD::HISTOGRAM:
+          cv::equalizeHist(gray_image, gray_image);
+          break;
+        case METHOD::CLAHE:
+          double eq_clip_limit = 40.0;
+          cv::Size eq_win_size = cv::Size(8, 8);
+          cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(eq_clip_limit, eq_win_size);
+          clahe->apply(gray_image, gray_image);
+          break;
+      }
+      cv_image_->image = gray_image;
+      cv_image_->encoding = "mono8";
+
       std::lock_guard<std::mutex> lk(image_mutex_);
       image_queue_.push_back(cv_image_);
     }
@@ -218,6 +247,7 @@ public:
     {
       std::unique_lock<std::mutex> lk(image_mutex_);
       img_con_.wait(lk);
+      // start judge
       if (!active_){
         // judge active here for out loop notify
         return ;
@@ -225,6 +255,9 @@ public:
       if (image_queue_.empty()){
         continue ;
       }
+      // end judge
+
+
       while (!image_queue_.empty())
       {
         if (!active_)
@@ -235,7 +268,9 @@ public:
 
         cv_bridge::CvImagePtr cv_image = image_queue_.front();
         lk.unlock();
-        // in the start time, the image is old than odom, pop
+
+        /// we here for getting correct odom data and image
+        // 1. if in the start time, the image is old than odom, pop
         if (!pose_estimator_->isInit()){
           double odom_time_left = -1.0;
           {
@@ -251,7 +286,7 @@ public:
             continue ;
           }
         }
-        // on running, image timestamp new than odom, waiting for 10ms
+        // 2. on running step, image timestamp new than odom, waiting for 10ms
         else{
           double odom_time_right = std::numeric_limits<double>::max();
           {
@@ -346,6 +381,12 @@ public:
       ROS_WARN("pose_estimator_ not construct!");
       return;
     }
+    if (!active_){
+      ROS_WARN("pose_estimator_ update not active!");
+      pose_estimator_->stop();
+      return ;
+    }
+
     // if we don't have initial pose, use correct to set
     if (!pose_estimator_->isInit())
     {
@@ -551,8 +592,13 @@ public:
     ROS_INFO("stop...");
     active_ = false;
     camera_image_subscriber_.shutdown();
+    odom_sub_.shutdown();
+    {
+      std::lock_guard<std::mutex>lk(odom_mutex_);
+      odom_queue_.clear();
+    }
+    ROS_INFO("shutdown odom sub, camera sub");
     select_tag_name_.clear();
-    pose_estimator_.reset();
     T_correct_tag_odom_ = boost::none;
     img_con_.notify_all();  // for out process loop
     if (process_th_)
@@ -562,6 +608,7 @@ public:
     }
     ROS_INFO("[apriltag localization]: stop0");
     process_th_.reset();
+    pose_estimator_.reset();
     ROS_INFO("[apriltag localization]: stop1");
   }
   void start()
@@ -575,7 +622,8 @@ public:
     camera_image_subscriber_ = it_->subscribe(image_topic_, 1, &ApriltagLocalizationNodeLet::imageCallback, this,
                                               image_transport::TransportHints(transport_hint));
     ROS_INFO("camera_image_subscriber setup on topic: %s", image_topic_.c_str());
-
+    odom_sub_ = mt_nh_.subscribe(odom_topic_, 10, &ApriltagLocalizationNodeLet::odomCallback, this);
+    ROS_INFO("odom_subscriber setup on topic: %s", odom_topic_.c_str());
     // reset estimator
     pose_estimator_ = std::make_unique<PoseEstimator>();
     process_th_ = std::make_unique<std::thread>(&ApriltagLocalizationNodeLet::processImg, this);
@@ -603,6 +651,7 @@ private:
   ros::Subscriber stop_sub_;
   ros::Subscriber odom_sub_;
   std::string cam_config_path_;
+  std::string odom_topic_;
 
   std::mutex odom_mutex_;
   std::mutex image_mutex_;

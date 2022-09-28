@@ -18,13 +18,15 @@
     <param name="publish_tag_detections_image" type="bool" value="true" />      <!-- default: false -->
     <param name="cam_config" type="string" value="$(arg cam_config)" />
   </node>
+
   <node pkg="nodelet" type="nodelet" name="image_pub_node" args="load apriltag_localization/ImageNodeLet $(arg nodelet_manager)"
         clear_params="true" output="screen">
-
-    <!-- Remap topics from those used in code to those on the ROS network -->
-<!--    <remap from="odom"  to="$(arg odom_topic)"/>-->
     <!-- Set parameters -->
     <param name="cam_config" type="string" value="$(arg cam_config)" />
   </node>
+
+  <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle5' "  />
+
+  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>
 
 </launch>
