@@ -47,6 +47,7 @@ public:
     {
       ROS_WARN("Does not has cam_config!!\n");
     }
+    odom_topic_ = "odom";
 
     tag_detector_ = std::shared_ptr<TagDetector>(new TagDetector(pnh_));
     draw_tag_detections_image_ = getAprilTagOption<bool>(pnh_, "publish_tag_detections_image", false);
@@ -61,15 +62,20 @@ public:
     stop_sub_ = mt_nh_.subscribe("/stop_docking", 10, &ApriltagLocalizationNodeLet::stopCallback, this,
                                  ros::TransportHints().tcp());
 
-    odom_sub_ = mt_nh_.subscribe("odom", 10, &ApriltagLocalizationNodeLet::odomCallback, this);
+    odom_sub_ = mt_nh_.subscribe(odom_topic_, 10, &ApriltagLocalizationNodeLet::odomCallback, this);
     odom_topic_ = odom_sub_.getTopic();
     ROS_INFO("odom subscribe on: %s", odom_topic_.c_str());
     pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
+    tag_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("tag_pose", 1);
   }
 
   void odomCallback(const nav_msgs::OdometryConstPtr& msg)
   {
     ROS_DEBUG("odom_income");
+    if (msg->header.stamp.toSec() < 1000){
+      ROS_DEBUG("odom stamp error");
+      return ;
+    }
     if (!active_)
     {
       {
@@ -203,8 +209,25 @@ public:
       ROS_ERROR("cv_bridge exception: %s", e.what());
       return;
     }
+
+//    std::vector<std::string> detection_names;
+//    AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel_ethz(cv_image_, detection_names);
+//
+//    // Publish detected tags in the image by AprilTag 2
+//    tag_detections_publisher_.publish(tag_result);
+//    // visualize
+//    // Publish the camera image overlaid by outlines of the detected tags and
+//    // their payload values
+//    if (draw_tag_detections_image_ && tag_detections_image_publisher_.getNumSubscribers() > 0)
+//    {
+//      tag_detector_->drawDetections(cv_image_);
+//      tag_detections_image_publisher_.publish(cv_image_->toImageMsg());
+//    }
+//    return ;
+
     {
 
+      /*
       cv::Mat gray_image;
       cv::cvtColor(cv_image_->image, gray_image, cv::COLOR_BGR2GRAY);
       enum class METHOD{
@@ -230,6 +253,7 @@ public:
       }
       cv_image_->image = gray_image;
       cv_image_->encoding = "mono8";
+       */
 
       std::lock_guard<std::mutex> lk(image_mutex_);
       image_queue_.push_back(cv_image_);
@@ -282,7 +306,7 @@ public:
           if (cv_image->header.stamp.toSec() < odom_time_left || odom_time_left < 0){
             lk.lock();
             image_queue_.pop_front();
-            ROS_INFO("pop image");
+            ROS_DEBUG("no odom, pop image");
             continue ;
           }
         }
@@ -304,7 +328,9 @@ public:
         }
 
         lk.lock();
-        image_queue_.pop_front();
+        if (!image_queue_.empty()){
+          image_queue_.pop_front();
+        }
         lk.unlock();
         std::vector<std::string> detection_names;
         AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel(cv_image, detection_names);
@@ -329,6 +355,20 @@ public:
         bool find_tag = getMeasurement(tag_result, detection_names, measure);
         if (find_tag)
         {
+          Eigen::Quaternionf q(Eigen::AngleAxisf(measure.middleRows<3>(0).norm(), measure.middleRows<3>(0).normalized()));
+
+          geometry_msgs::PoseStamped msg;
+          msg.header = tag_result.header;
+          msg.pose.position.x = measure(3);
+          msg.pose.position.y = measure(4);
+          msg.pose.position.z = measure(5);
+          msg.pose.orientation.w = q.w();
+          msg.pose.orientation.x = q.x();
+          msg.pose.orientation.y = q.y();
+          msg.pose.orientation.z = q.z();
+          if (tag_pose_pub_.getNumSubscribers() > 0){
+            tag_pose_pub_.publish(msg);
+          }
           update(tag_result.header.stamp.toSec(), measure);
         }
         lk.lock();
@@ -592,7 +632,7 @@ public:
     ROS_INFO("stop...");
     active_ = false;
     camera_image_subscriber_.shutdown();
-    odom_sub_.shutdown();
+//    odom_sub_.shutdown();
     {
       std::lock_guard<std::mutex>lk(odom_mutex_);
       odom_queue_.clear();
@@ -622,8 +662,8 @@ public:
     camera_image_subscriber_ = it_->subscribe(image_topic_, 1, &ApriltagLocalizationNodeLet::imageCallback, this,
                                               image_transport::TransportHints(transport_hint));
     ROS_INFO("camera_image_subscriber setup on topic: %s", image_topic_.c_str());
-    odom_sub_ = mt_nh_.subscribe(odom_topic_, 10, &ApriltagLocalizationNodeLet::odomCallback, this);
-    ROS_INFO("odom_subscriber setup on topic: %s", odom_topic_.c_str());
+//    odom_sub_ = mt_nh_.subscribe(odom_topic_, 10, &ApriltagLocalizationNodeLet::odomCallback, this);
+    ROS_INFO("odom_subscriber setup on topic: %s", odom_sub_.getTopic().c_str());
     // reset estimator
     pose_estimator_ = std::make_unique<PoseEstimator>();
     process_th_ = std::make_unique<std::thread>(&ApriltagLocalizationNodeLet::processImg, this);
@@ -647,6 +687,7 @@ private:
   image_transport::Publisher tag_detections_image_publisher_;
   ros::Publisher tag_detections_publisher_;
   ros::Publisher pose_pub_;
+  ros::Publisher tag_pose_pub_;
   ros::Subscriber cam_name_sub_;
   ros::Subscriber stop_sub_;
   ros::Subscriber odom_sub_;

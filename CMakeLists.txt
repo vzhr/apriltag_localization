@@ -34,14 +34,15 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 ENDIF()
 
 
-add_compile_options("-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
-#add_compile_options("-O3" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
+#add_compile_options("-g" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
+add_compile_options("-O3" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops" "-fno-math-errno" "-funsafe-math-optimizations" "-ffinite-math-only" "-fno-signed-zeros")
 
 # Note: These options have been turned off to allow for binary releases -
 # in local builds, they can be reactivated to achieve higher performance.
  if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "x86_64" OR "x86_32")
-#   message("enabling msse2 for x86_64 or x86_32 architecture")
-#   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -msse2 ")
+   message("enabling msse2 for x86_64 or x86_32 architecture")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -msse2 ")
+   message("CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
  endif()
  if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm")
    message("enabling -mfpu=neon -mfloat-abi=softfp for ARM architecture")
@@ -104,22 +105,38 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 file(GLOB_RECURSE CAM_LIBRARY_SOURCES "${CMAKE_CURRENT_LIST_DIR}/src/camera_models/src/*.cc")
+file(GLOB_RECURSE ETHZ_APRILTAG_SOURCES "${CMAKE_CURRENT_LIST_DIR}/src/ethz_apriltag/*.cc")
 message(STATUS "CAM_LIBRARY_SOURCES: ${CAM_LIBRARY_SOURCES}")
 add_library(apriltag_localization
         app/apriltag_localization.cpp
         src/common_functions.cpp
         src/apriltag_localization/pose_estimator.cpp
         ${CAM_LIBRARY_SOURCES}
+        ${ETHZ_APRILTAG_SOURCES}
         )
 target_link_libraries(apriltag_localization ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} apriltag::apriltag Eigen3::Eigen)
 add_dependencies(apriltag_localization ${PROJECT_NAME}_generate_messages_cpp)
-target_compile_options(apriltag_localization PRIVATE "-std=c++14")
+target_compile_options(apriltag_localization PUBLIC "-std=c++14")
 
 add_library(image_nodelet
         app/image_nodelet.cpp
         )
 target_link_libraries(image_nodelet ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} Eigen3::Eigen)
 target_compile_options(image_nodelet PRIVATE "-std=c++14")
+
+
+
+add_library(fake_odom_nodelet
+        app/fake_odom_nodelet.cpp
+        )
+target_link_libraries(fake_odom_nodelet ${catkin_LIBRARIES} Eigen3::Eigen)
+
+
+add_executable(fake_odom_node
+        app/fake_odom_node.cpp
+        )
+target_link_libraries(fake_odom_node fake_odom_nodelet)
+
 
 add_executable(apriltag_localization_node app/apriltage_localization_node.cpp)
 target_link_libraries(apriltag_localization_node apriltag_localization ${catkin_LIBRARIES})
@@ -162,7 +179,7 @@ target_link_libraries(pose_rk4_test Eigen3::Eigen Python3::Python Python3::Modul
 ## Install ##
 #############
 
-install(DIRECTORY include/${PROJECT_NAME}/
+install(DIRECTORY include/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
 )
@@ -174,8 +191,13 @@ install(FILES nodelet_plugins.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
-install(TARGETS
-  apriltag_localization apriltag_localization_node image_nodelet
+install(
+  TARGETS
+  apriltag_localization
+  apriltag_localization_node
+  image_nodelet
+  apriltag_localization_with_camera_node
+  fake_odom_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

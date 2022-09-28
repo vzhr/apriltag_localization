@@ -17,6 +17,6 @@
     <param name="publish_tag_detections_image" type="bool" value="true" />      <!-- default: false -->
     <param name="cam_config" type="string" value="$(find apriltag_localization)/config/" />
   </node>
-  <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle5' "  />
-  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>
+<!--  <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle5' "  />-->
+<!--  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>-->
 </launch>

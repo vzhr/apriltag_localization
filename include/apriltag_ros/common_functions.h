@@ -67,6 +67,11 @@
 #include "apriltag_localization/AprilTagDetection.h"
 #include "apriltag_localization/AprilTagDetectionArray.h"
 #include "camera_models/include/Camera.h"
+#include "ethz_apriltag/TagDetector.h"
+#include "ethz_apriltag/TagDetection.h"
+#include "ethz_apriltag/Tag36h11.h"
+#include "ethz_apriltag/Tag16h5.h"
+
 namespace apriltag_ros
 {
 
@@ -160,6 +165,9 @@ class TagDetector
 
   // Remove detections of tags with the same ID
   void removeDuplicates();
+  void removeDuplicates(std::vector<AprilTags::TagDetection>& detections);
+
+
 
   // AprilTag 2 code's attributes
   std::string family_;
@@ -177,6 +185,11 @@ class TagDetector
   apriltag_detector_t *td_;
   zarray_t *detections_;
 
+  bool use_ethz_ = true;
+  // Ethz AprilTag objects
+  AprilTags::TagCodes ethz_tag_codes_;
+  std::unique_ptr<AprilTags::TagDetector> ethz_tag_detector_ptr_;
+  std::vector<AprilTags::TagDetection> ethz_detections_;
   // Other members
   std::map<int, StandaloneTagDescription> standalone_tag_descriptions_;
   std::vector<TagBundleDescription > tag_bundle_descriptions_;
@@ -229,11 +242,15 @@ class TagDetector
   
   void addImagePoints(apriltag_detection_t *detection,
                       std::vector<cv::Point2d >& imagePoints) const;
+  void addImagePoints(const AprilTags::TagDetection& detection,
+                      std::vector<cv::Point2d >& imagePoints) const;
+
   void addObjectPoints(double s, cv::Matx44d T_oi,
                        std::vector<cv::Point3d >& objectPoints) const;
 
   // Draw the detected tags' outlines and payload values on the image
   void drawDetections(cv_bridge::CvImagePtr image);
+  void drawDetections_ethz(cv_bridge::CvImagePtr image);
 
   bool get_publish_tf() const { return publish_tf_; }
 
@@ -241,6 +258,8 @@ class TagDetector
     cam_ = cam_model;}
   CameraPtr& getCam(){return cam_;}
   apriltag_localization::AprilTagDetectionArray detectTagsWithModel(const cv_bridge::CvImagePtr& image,
+                                             std::vector<std::string>& detection_name_vec);
+  apriltag_localization::AprilTagDetectionArray detectTagsWithModel_ethz(const cv_bridge::CvImagePtr& image,
                                              std::vector<std::string>& detection_name_vec);
 };
 

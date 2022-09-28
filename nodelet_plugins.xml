@@ -17,4 +17,13 @@
 		</description>
 	</class>
 </library>
+<library path="lib/libfake_odom_nodelet">
+    <class name="apriltag_localization/FakeOdomNodeLet"
+        type="apriltag_localization::FakeOdomNodeLet"
+		base_class_type="nodelet::Nodelet">
+		<description>
+			image publish nodelet
+		</description>
+	</class>
+</library>
 

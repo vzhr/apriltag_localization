@@ -12,3 +12,4 @@ max_hamming_dist:  2          # default: 2 (Tunable parameter with 2 being a goo
 publish_tf:        false       # default: false
 transport_hint:    "raw"      # default: raw, see http://wiki.ros.org/image_transport#Known_Transport_Packages for options
 remove_duplicates: true
+use_ethz: true

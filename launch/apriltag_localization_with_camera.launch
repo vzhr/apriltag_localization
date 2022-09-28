@@ -1,26 +1,29 @@
 <launch>
   <arg name="launch_prefix" default="" /> <!-- set to value="gdbserver localhost:10000" for remote debugging -->
-<!--  <arg name="launch_prefix" default="gdb -e run &#45;&#45;args" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
+<!--  <arg name="launch_prefix" default="gdb -ex run &#45;&#45;args" /> &lt;!&ndash; set to value="gdbserver localhost:10000" for remote debugging &ndash;&gt;-->
   <arg name="node_namespace" default="apriltag_localization_with_camera_node" />
 
   <arg name="cam_config"  default="$(find apriltag_localization)/config/"/>
   <arg name="odom_topic"  default="/jarvis/odom"/>
 
 
+  <param name="$(arg node_namespace)_image/cam_config" type="string" value="$(arg cam_config)"/> <!--for camera-->
 
-  <!-- Set parameters -->
-  <rosparam command="load" file="$(find apriltag_localization)/config/settings.yaml" ns="$(arg node_namespace)" />
-  <rosparam command="load" file="$(find apriltag_localization)/config/tags.yaml" ns="$(arg node_namespace)" />
 
-  <param name="$(arg node_namespace)_image/cam_config" type="string" value="$(arg cam_config)"/>
+
   <node pkg="apriltag_localization" type="apriltag_localization_with_camera_node" name="$(arg node_namespace)" clear_params="true" output="screen" launch-prefix="$(arg launch_prefix)" >
     <!-- Remap topics from those used in code to those on the ROS network -->
-    <param name="publish_tag_detections_image" type="bool" value="true" />      <!-- default: false -->
-    <!-- Remap topics from those used in code to those on the ROS network -->
     <remap from="odom"  to="$(arg odom_topic)"/>
+
+    <!-- Set parameters -->
+    <param name="publish_tag_detections_image" type="bool" value="true" />      <!-- default: false -->
     <param name="cam_config" type="string" value="$(arg cam_config)" />
+    <rosparam command="load" file="$(find apriltag_localization)/config/settings.yaml" />
+    <rosparam command="load" file="$(find apriltag_localization)/config/tags.yaml" />
+
   </node>
-  <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle5' "  />
+
+<!--  <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'cam1@bundle0' "  />-->
 <!--  <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>-->
 
 </launch>

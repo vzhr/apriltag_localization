@@ -19,8 +19,8 @@ PoseEstimator::PoseEstimator() : init_(false)
   process_noise_.middleRows(3, 3) *= 0.1;
 
   measure_noise_ = Eigen::MatrixXf::Identity(6, 6);
-  measure_noise_.middleRows(0, 3) *= 0.001;
-  measure_noise_.middleRows(3, 3) *= 0.01;
+  measure_noise_.middleRows(0, 3) *= 0.01;
+  measure_noise_.middleRows(3, 3) *= 0.1;
 
   Eigen::VectorXf mean(6);
   mean.setZero();

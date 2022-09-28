@@ -22,6 +22,7 @@
 standalone_tags:
   [
     { id: 2, size: 0.08, name: "april_tag2" },
+    { id: 1, size: 0.08, name: "april_tag1" },
     { id: 0, size: 0.08, name: "april_tag0" },
     { id: 3, size: 0.08, name: "april_tag3" },
   ]
@@ -55,6 +56,15 @@ tag_bundles:
           { id: 0, size: 0.08, x: 0, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
           { id: 2, size: 0.08, x: -0.09, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
           { id: 3, size: 0.08, x: 0.09, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 }
+        ]
+    },
+    {
+      name: 'bundle0',
+      layout:
+        [
+          { id: 1, size: 0.08, x: 0, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
+          { id: 0, size: 0.08, x: -0.104, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
+          { id: 2, size: 0.08, x: 0.104, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 }
         ]
     }
   ]
