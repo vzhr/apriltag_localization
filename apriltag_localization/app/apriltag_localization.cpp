@@ -257,6 +257,12 @@ public:
 
       std::lock_guard<std::mutex> lk(image_mutex_);
       image_queue_.push_back(cv_image_);
+      // TODO pop old data
+      while (!image_queue_.empty() &&
+             image_queue_.back()->header.stamp.toSec() - image_queue_.front()->header.stamp.toSec() > 2.0)
+      {
+        image_queue_.pop_front();
+      }
     }
     img_con_.notify_one();
   }
@@ -289,7 +295,39 @@ public:
           image_queue_.clear();
           return;
         }
-
+        if (odom_queue_.size() < 3){
+            image_queue_.clear();
+            break;
+        }
+        
+        double odom_left = odom_queue_.front()->header.stamp.toSec();
+        double odom_right = odom_queue_.back()->header.stamp.toSec();
+        auto it = image_queue_.first();
+        whilt(it != image_queue_.end()){
+          if((*it)->header.stamp.toSec() > odom_left) break;
+          ++it;
+        }
+        if((*it)->header.stamp.toSec() > odom_right){
+          // image come early, wait odom for a little time 
+          lk.unlock();
+          using namespace std::chrono_literals;
+          std::this_thread::sleep_for(10ms);
+          break;  
+        }
+        
+        // here image queue has valid data, find latest valid one
+        auto it_next = it;
+        whilt(it_next != image_queue_.end()){
+          if((*it_next)->header.stamp.toSec() > odom_right) break;
+          it = it_next;
+          ++it_next;
+        }
+        // here we get the valid latest image, detect it
+        cv_bridge::CvImagePtr cv_image = *it;
+        image_queue_.erase(image_queue_.first, it_next);
+        lk.unlock();
+        
+        /*
         cv_bridge::CvImagePtr cv_image = image_queue_.front();
         lk.unlock();
 
@@ -332,6 +370,7 @@ public:
           image_queue_.pop_front();
         }
         lk.unlock();
+        */
         std::vector<std::string> detection_names;
         AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel(cv_image, detection_names);
 
