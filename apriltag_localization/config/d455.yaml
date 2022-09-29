@@ -1,0 +1,26 @@
+%YAML:1.0
+---
+video_dev: 4
+pub_freq: 10
+image_topic: "/camera/color/image_raw"
+camera_name: d455
+model_type: PINHOLE
+image_width: 640
+image_height: 480
+projection_parameters:
+  fx: 368.6643400759364
+  fy: 368.08195775106685
+  cx: 326.45592188646145
+  cy: 244.89379560785443
+  k1: -0.05058588571761001
+  k2: 0.027209215932303698
+  p1: -0.0014675565398012825
+  p2: 0.0034517163152713226
+T_base_cam: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: d
+  data:  [ 0, 0, 1, 0.4,
+          -1, 0, 0,-0.14,
+           0,-1, 0, 0,
+           0, 0, 0, 1]
