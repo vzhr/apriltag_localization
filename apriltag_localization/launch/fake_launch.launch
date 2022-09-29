@@ -15,7 +15,7 @@
 
     <node pkg="apriltag_localization" type="fake_odom_node" name="fake_odom_node" output="screen" />
 
-    <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'd455@bundle5' "  />
+    <node pkg="rostopic" type="rostopic" name="start_pub" args="pub /tag_cam_name std_msgs/String 'd455@bundle2' "  />
     <node pkg="rqt_image_view" type="rqt_image_view" name="image_view"/>
 
 </launch>

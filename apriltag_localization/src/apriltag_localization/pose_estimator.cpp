@@ -64,13 +64,17 @@ void PoseEstimator::correct(double timestamp, const Eigen::VectorXf& measure)
 {
   assert(measure.rows() == 6);
 
+  float distance = measure.tail<3>(3).norm();
+  float scale = 1.0f + std::abs(distance  - 0.4) * 10.0f;
+  Eigen::MatrixXf measure_noise = scale * measure_noise_;
   last_correction_ = timestamp;
   if (!init_){
     init_ = true;
-    ukf->cov = measure_noise_;
+    ukf->cov = measure_noise;
     ukf->mean = measure;
     return ;
   }
+  ukf->setMeasurementNoiseCov(measure_noise);
   ukf->correct(measure);
 }
 Eigen::Isometry3d PoseEstimator::matrix()

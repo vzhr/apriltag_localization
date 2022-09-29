@@ -520,7 +520,6 @@ public:
       auto item = std::find(detection_names.begin(), detection_names.end(), select_tag_name_);
       if (item != detection_names.end())
       {
-        ROS_INFO("find %s", (*item).c_str());
         auto dist = std::distance(detection_names.begin(), item);
         T_cam_tag = pose2isometry(tag_result.detections.at(dist).pose.pose.pose);
         find_tag = true;
