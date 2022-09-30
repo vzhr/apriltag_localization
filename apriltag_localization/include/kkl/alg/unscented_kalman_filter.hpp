@@ -162,9 +162,6 @@ public:
       VectorXt diff = expected_measurements.row(i).transpose() - expected_measurement_mean;
       expected_measurement_cov += ext_weights[i] * diff * diff.transpose();
     }
-//    std::cout << "expected_measurement_cov: \n" << expected_measurement_cov << std::endl;
-//    std::cout << "expected_measurement_cov inverse: \n" <<expected_measurement_cov.inverse() << std::endl;
-
     // calculated transformed covariance
     MatrixXt sigma = MatrixXt::Zero(N + K, K);
     for (int i = 0; i < ext_sigma_points.rows(); i++) {
@@ -181,9 +178,9 @@ public:
 
     mean = ext_mean.topLeftCorner(N, 1);
     cov = ext_cov.topLeftCorner(N, N);
-    std::cout << "mean: \n" << mean.transpose() << std::endl;
-    std::cout << "expected_measurement_mean: \n" <<expected_measurement_mean.transpose() << std::endl;
-    std::cout << "measurement: \n" << measurement.transpose() << std::endl;
+//    std::cout << "mean: \n" << mean.transpose() << std::endl;
+//    std::cout << "expected_measurement_mean: \n" <<expected_measurement_mean.transpose() << std::endl;
+//    std::cout << "measurement: \n" << measurement.transpose() << std::endl;
 
 //    std::cout << "cov: \n" << cov << std::endl;
 

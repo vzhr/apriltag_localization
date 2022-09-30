@@ -1149,7 +1149,7 @@ TagDetector::detectTagsWithModel_ethz(const cv_bridge::CvImagePtr& image, std::v
         tag_corners.at<float>(4 * i + j, 1) = detections[i].p[j].second;
       }
     }
-    cv::cornerSubPix(gray_image, tag_corners, cv::Size(5, 5), cv::Size(-1, -1),
+    cv::cornerSubPix(gray_image, tag_corners, cv::Size(2, 2), cv::Size(-1, -1),
                      cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 20, 0.001));
     for (unsigned i = 0; i < detections.size(); i++)
     {

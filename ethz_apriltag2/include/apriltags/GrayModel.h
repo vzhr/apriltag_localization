@@ -24,7 +24,7 @@ public:
 
   float interpolate(float x, float y);
 
-private:
+//private:
   void compute();
 
 // We're solving Av = b.  

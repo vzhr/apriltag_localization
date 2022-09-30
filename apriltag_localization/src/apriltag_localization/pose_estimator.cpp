@@ -65,7 +65,7 @@ void PoseEstimator::correct(double timestamp, const Eigen::VectorXf& measure)
   assert(measure.rows() == 6);
 
   float distance = measure.tail<3>(3).norm();
-  float scale = 1.0f + std::abs(distance  - 0.4) * 10.0f;
+  float scale = 1.0f + std::abs(distance  - 0.5) * 10.0f;
   Eigen::MatrixXf measure_noise = scale * measure_noise_;
   last_correction_ = timestamp;
   if (!init_){

@@ -71,7 +71,7 @@ public:
 
   void odomCallback(const nav_msgs::OdometryConstPtr& msg)
   {
-    ROS_DEBUG("odom_income");
+    ROS_DEBUG_THROTTLE(1, "odom_income");
     if (msg->header.stamp.toSec() < 1000){
       ROS_DEBUG("odom stamp error");
       return ;
@@ -111,8 +111,8 @@ public:
 
       Eigen::Matrix3d rotation = T_tag_baselink.linear();
       double theta = std::atan2(rotation(1,0), rotation(0,0));
-      ROS_DEBUG("theta: %f", theta);
-      ROS_DEBUG_STREAM("pose: " << T_tag_baselink.translation().transpose());
+      ROS_DEBUG_THROTTLE(1, "theta: %f", theta);
+      ROS_DEBUG_STREAM_THROTTLE(1, "pose: " << T_tag_baselink.translation().transpose());
     }
   }
   void cleanOldOdomData(double stamp)
@@ -183,6 +183,7 @@ public:
   {
     if (!active_)
     {
+      ROS_INFO("imagecallback return");
       return;
     }
     // Lazy updates:
@@ -225,7 +226,7 @@ public:
 //    }
 //    return ;
 
-    {
+
 
       /*
       cv::Mat gray_image;
@@ -254,16 +255,17 @@ public:
       cv_image_->image = gray_image;
       cv_image_->encoding = "mono8";
        */
-
+    {
       std::lock_guard<std::mutex> lk(image_mutex_);
       image_queue_.push_back(cv_image_);
       // TODO pop old data
       while (!image_queue_.empty() &&
-             image_queue_.back()->header.stamp.toSec() - image_queue_.front()->header.stamp.toSec() > 2.0)
+             image_queue_.back()->header.stamp.toSec() - image_queue_.front()->header.stamp.toSec() > 5.0)
       {
         image_queue_.pop_front();
       }
     }
+    ROS_DEBUG_THROTTLE(1, "throttle img_con_.notify_one()");
     img_con_.notify_one();
   }
   virtual ~ApriltagLocalizationNodeLet()
@@ -287,7 +289,7 @@ public:
       }
       // end judge
 
-
+      ros::Rate r(2);
       while (!image_queue_.empty())
       {
         if (!active_)
@@ -299,17 +301,18 @@ public:
             image_queue_.clear();
             break;
         }
-        
+        r.sleep();
         double odom_left = odom_queue_.front()->header.stamp.toSec();
         double odom_right = odom_queue_.back()->header.stamp.toSec();
-        auto it = image_queue_.first();
-        whilt(it != image_queue_.end()){
+        auto it = image_queue_.begin();
+        while(it != image_queue_.end()){
           if((*it)->header.stamp.toSec() > odom_left) break;
           ++it;
         }
         if((*it)->header.stamp.toSec() > odom_right){
           // image come early, wait odom for a little time 
           lk.unlock();
+          ROS_DEBUG_THROTTLE(1, "image wait for odom come");
           using namespace std::chrono_literals;
           std::this_thread::sleep_for(10ms);
           break;  
@@ -317,14 +320,17 @@ public:
         
         // here image queue has valid data, find latest valid one
         auto it_next = it;
-        whilt(it_next != image_queue_.end()){
+        while(it_next != image_queue_.end()){
           if((*it_next)->header.stamp.toSec() > odom_right) break;
           it = it_next;
           ++it_next;
         }
         // here we get the valid latest image, detect it
         cv_bridge::CvImagePtr cv_image = *it;
-        image_queue_.erase(image_queue_.first, it_next);
+        if (it != image_queue_.begin()){
+          ROS_DEBUG_THROTTLE(1, "erase old image");
+        }
+        image_queue_.erase(image_queue_.begin(), it_next);
         lk.unlock();
         
         /*
@@ -371,6 +377,7 @@ public:
         }
         lk.unlock();
         */
+        ROS_DEBUG_THROTTLE(1, "detect image");
         std::vector<std::string> detection_names;
         AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel(cv_image, detection_names);
 
@@ -469,7 +476,7 @@ public:
     // if we don't have initial pose, use correct to set
     if (!pose_estimator_->isInit())
     {
-      ROS_INFO("pose_estimator init correct");
+      ROS_INFO("pose_estimator init");
       pose_estimator_->correct(stamp, measure);
       return;
     }

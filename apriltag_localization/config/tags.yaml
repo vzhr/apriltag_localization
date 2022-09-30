@@ -50,7 +50,7 @@ standalone_tags:
 tag_bundles:
   [
     {
-      name: 'bundle5',
+      name: 'bundle11',
       layout:
         [
           { id: 0, size: 0.08, x: 0, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
@@ -81,10 +81,20 @@ tag_bundles:
       layout:
         [
           { id: 1, size: 0.06, x: 0, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
-          { id: 0, size: 0.06, x: -0.088, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
-          { id: 2, size: 0.06, x: 0.088, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 }
+          { id: 0, size: 0.06, x: -0.078, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
+          { id: 2, size: 0.06, x: 0.078, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 }
         ]
     },
+    {
+      name: 'bundle5',
+      layout:
+        [
+          { id: 0, size: 0.04, x: 0, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
+          { id: 1, size: 0.04, x: 0.052, y: 0, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
+          { id: 2, size: 0.04, x: 0.0, y: 0.052, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 },
+          { id: 3, size: 0.04, x: 0.052, y: 0.052, z: 0, qw: 1, qx: 0, qy: 0, qz: 0 }
+        ]
+    }
 
 
   ]

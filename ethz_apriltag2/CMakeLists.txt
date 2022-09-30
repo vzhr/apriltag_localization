@@ -19,7 +19,7 @@ add_compile_options("-O3" "-funsafe-loop-optimizations" "-fsee" "-funroll-loops"
 # in local builds, they can be reactivated to achieve higher performance.
 if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "x86_64" OR "x86_32")
   message("enabling msse2 for x86_64 or x86_32 architecture")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -msse2 ")
+#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -msse2 ")
   message("CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 endif()
 if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "arm")
