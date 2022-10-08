@@ -677,8 +677,15 @@ public:
   {
     ROS_INFO("stop...");
     active_ = false;
+    img_con_.notify_all();  // for out process loop
+    if (process_th_)
+    {
+      process_th_->join();
+      ROS_INFO("[apriltag localization]: process join");
+    }
+
     camera_image_subscriber_.shutdown();
-//    odom_sub_.shutdown();
+    odom_sub_.shutdown();
     {
       std::lock_guard<std::mutex>lk(odom_mutex_);
       odom_queue_.clear();
@@ -686,16 +693,9 @@ public:
     ROS_INFO("shutdown odom sub, camera sub");
     select_tag_name_.clear();
     T_correct_tag_odom_ = boost::none;
-    img_con_.notify_all();  // for out process loop
-    if (process_th_)
-    {
-      ROS_INFO("[apriltag localization]: process join");
-      process_th_->join();
-    }
-    ROS_INFO("[apriltag localization]: stop0");
     process_th_.reset();
     pose_estimator_.reset();
-    ROS_INFO("[apriltag localization]: stop1");
+    ROS_INFO("[apriltag localization]: stopped");
   }
   void start()
   {
@@ -708,7 +708,7 @@ public:
     camera_image_subscriber_ = it_->subscribe(image_topic_, 1, &ApriltagLocalizationNodeLet::imageCallback, this,
                                               image_transport::TransportHints(transport_hint));
     ROS_INFO("camera_image_subscriber setup on topic: %s", image_topic_.c_str());
-//    odom_sub_ = mt_nh_.subscribe(odom_topic_, 10, &ApriltagLocalizationNodeLet::odomCallback, this);
+    odom_sub_ = mt_nh_.subscribe(odom_topic_, 10, &ApriltagLocalizationNodeLet::odomCallback, this);
     ROS_INFO("odom_subscriber setup on topic: %s", odom_sub_.getTopic().c_str());
     // reset estimator
     pose_estimator_ = std::make_unique<PoseEstimator>();

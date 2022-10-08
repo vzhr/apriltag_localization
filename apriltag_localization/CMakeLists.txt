@@ -152,9 +152,9 @@ target_link_libraries(apriltag_localization_camera_node image_nodelet ${catkin_L
 
 
 
-find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
-add_executable(pose_rk4_test test/rk4_test.cpp include/apriltag_localization/pose_system.h test/matplotlibcpp.h)
-target_link_libraries(pose_rk4_test Eigen3::Eigen Python3::Python Python3::Module Python3::NumPy)
+#find_package(Python3 COMPONENTS Interpreter Development NumPy REQUIRED)
+#add_executable(pose_rk4_test test/rk4_test.cpp include/apriltag_localization/pose_system.h test/matplotlibcpp.h)
+#target_link_libraries(pose_rk4_test Eigen3::Eigen Python3::Python Python3::Module Python3::NumPy)
 
 #############
 ## Install ##
