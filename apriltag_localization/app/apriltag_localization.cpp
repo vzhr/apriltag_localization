@@ -67,6 +67,7 @@ public:
     ROS_INFO("odom subscribe on: %s", odom_topic_.c_str());
     pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("pose_in_tag", 1);
     tag_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("tag_pose", 1);
+    init_ = true;
   }
 
   void odomCallback(const nav_msgs::OdometryConstPtr& msg)
@@ -171,7 +172,7 @@ public:
     Eigen::Matrix4d T;
     cv::cv2eigen(cv_T, T);
     fs.release();
-    std::cout << T <<std::endl;
+    std::cout << "T_baselink_cam:\n" << T <<std::endl;
     T_baselink_cam_.translation() = T.block<3,1>(0,3);
     T_baselink_cam_.linear() = T.block<3,3>(0,0);
     // setup camera model
@@ -294,7 +295,6 @@ public:
       {
         if (!active_)
         {
-          image_queue_.clear();
           return;
         }
         if (odom_queue_.size() < 3){
@@ -302,12 +302,20 @@ public:
             break;
         }
         r.sleep();
+
+        // find valid image
         double odom_left = odom_queue_.front()->header.stamp.toSec();
         double odom_right = odom_queue_.back()->header.stamp.toSec();
         auto it = image_queue_.begin();
         while(it != image_queue_.end()){
           if((*it)->header.stamp.toSec() > odom_left) break;
           ++it;
+        }
+
+        // if image too old, clear image and wait for next
+        if (it == image_queue_.end()){
+          image_queue_.clear();
+          break ;
         }
         if((*it)->header.stamp.toSec() > odom_right){
           // image come early, wait odom for a little time 
@@ -321,7 +329,8 @@ public:
         // here image queue has valid data, find latest valid one
         auto it_next = it;
         while(it_next != image_queue_.end()){
-          if((*it_next)->header.stamp.toSec() > odom_right) break;
+          if((*it_next)->header.stamp.toSec() > odom_right)
+            break;
           it = it_next;
           ++it_next;
         }
@@ -330,7 +339,7 @@ public:
         if (it != image_queue_.begin()){
           ROS_DEBUG_THROTTLE(1, "erase old image");
         }
-        image_queue_.erase(image_queue_.begin(), it_next);
+        image_queue_.erase(image_queue_.begin(), it);
         lk.unlock();
         
         /*
@@ -687,6 +696,10 @@ public:
     camera_image_subscriber_.shutdown();
     odom_sub_.shutdown();
     {
+      std::lock_guard<std::mutex>lk(image_mutex_);
+      image_queue_.clear();
+    }
+    {
       std::lock_guard<std::mutex>lk(odom_mutex_);
       odom_queue_.clear();
     }
@@ -700,6 +713,11 @@ public:
   void start()
   {
     ROS_INFO("start...");
+    while (!init_){
+      ROS_INFO_THROTTLE(1,"wait for init...");
+      using namespace std::chrono_literals;
+      std::this_thread::sleep_for(10ms);
+    }
     // start
     active_ = true;
     // setup subscribe
@@ -716,6 +734,7 @@ public:
   }
 
 private:
+  bool init_ = false;
   ros::NodeHandle nh_;
   ros::NodeHandle mt_nh_;
   ros::NodeHandle pnh_;
