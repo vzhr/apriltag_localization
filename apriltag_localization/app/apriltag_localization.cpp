@@ -475,11 +475,11 @@ public:
       ROS_WARN("pose_estimator_ not construct!");
       return;
     }
-    if (!active_){
-      ROS_WARN("pose_estimator_ update not active!");
-      pose_estimator_->stop();
-      return ;
-    }
+//    if (!active_){
+//      ROS_WARN("pose_estimator_ update not active!");
+//      pose_estimator_->stop();
+//      return ;
+//    }
 
     // if we don't have initial pose, use correct to set
     if (!pose_estimator_->isInit())
@@ -687,15 +687,6 @@ public:
     active_ = false;
     camera_image_subscriber_.shutdown();
     odom_sub_.shutdown();
-
-    {
-      std::lock_guard<std::mutex>lk(image_mutex_);
-      image_queue_.clear();
-    }
-    {
-      std::lock_guard<std::mutex>lk(odom_mutex_);
-      odom_queue_.clear();
-    }
     ROS_INFO("shutdown odom sub, camera sub");
     img_con_.notify_all();  // for out process loop
     if (process_th_)
@@ -704,7 +695,14 @@ public:
       process_th_->join();
       ROS_INFO("[apriltag localization]: process joined");
     }
-
+    {
+      std::lock_guard<std::mutex>lk(image_mutex_);
+      image_queue_.clear();
+    }
+    {
+      std::lock_guard<std::mutex>lk(odom_mutex_);
+      odom_queue_.clear();
+    }
     select_tag_name_.clear();
     T_correct_tag_odom_ = boost::none;
     process_th_.reset();
