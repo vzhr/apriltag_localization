@@ -337,53 +337,9 @@ public:
         if (it != image_queue_.begin()){
           ROS_DEBUG_THROTTLE(1, "erase old image");
         }
-        image_queue_.erase(image_queue_.begin(), it);
-        lk.unlock();
-        
-        /*
-        cv_bridge::CvImagePtr cv_image = image_queue_.front();
+        image_queue_.erase(image_queue_.begin(), it_next);
         lk.unlock();
 
-        /// we here for getting correct odom data and image
-        // 1. if in the start time, the image is old than odom, pop
-        if (!pose_estimator_->isInit()){
-          double odom_time_left = -1.0;
-          {
-            std::lock_guard<std::mutex> odom_lk(odom_mutex_);
-            if (!odom_queue_.empty()){
-              odom_time_left = odom_queue_.front()->header.stamp.toSec();
-            }
-          }
-          if (cv_image->header.stamp.toSec() < odom_time_left || odom_time_left < 0){
-            lk.lock();
-            image_queue_.pop_front();
-            ROS_DEBUG("no odom, pop image");
-            continue ;
-          }
-        }
-        // 2. on running step, image timestamp new than odom, waiting for 10ms
-        else{
-          double odom_time_right = std::numeric_limits<double>::max();
-          {
-            std::lock_guard<std::mutex> odom_lk(odom_mutex_);
-            if (!odom_queue_.empty()){
-              odom_time_right = odom_queue_.back()->header.stamp.toSec();
-            }
-          }
-          if (cv_image->header.stamp.toSec() > odom_time_right){
-            using namespace std::chrono_literals;
-            std::this_thread::sleep_for(10ms);
-            lk.lock();
-            break ;
-          }
-        }
-
-        lk.lock();
-        if (!image_queue_.empty()){
-          image_queue_.pop_front();
-        }
-        lk.unlock();
-        */
         ROS_DEBUG_THROTTLE(1, "detect image");
         std::vector<std::string> detection_names;
         AprilTagDetectionArray tag_result = tag_detector_->detectTagsWithModel(cv_image, detection_names);
@@ -424,7 +380,7 @@ public:
           }
           update(tag_result.header.stamp.toSec(), measure);
         }
-        r.sleep();
+//        r.sleep();
         lk.lock();
       }
     }
