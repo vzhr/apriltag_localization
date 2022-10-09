@@ -77,15 +77,7 @@ public:
       ROS_DEBUG("odom stamp error");
       return ;
     }
-    if (!active_)
-    {
-      {
-        std::lock_guard<std::mutex> lk(odom_mutex_);
-        odom_queue_.clear();
-      }
-      return;
-    }
-    else
+
     {
       std::lock_guard<std::mutex> lk(odom_mutex_);
       odom_queue_.push_back(msg);
@@ -136,7 +128,7 @@ public:
   {
     stop();
     if (msg->data == "stop"){
-      ROS_INFO("stop");
+      ROS_INFO("stop and return.");
       return ;
     }
     // setup camera model and image callback
@@ -184,8 +176,7 @@ public:
   {
     if (!active_)
     {
-      ROS_INFO("imagecallback return");
-      return;
+      ROS_INFO("image callback, but not active");
     }
     // Lazy updates:
     // When there are no subscribers _and_ when tf is not published,
@@ -304,8 +295,15 @@ public:
         r.sleep();
 
         // find valid image
-        double odom_left = odom_queue_.front()->header.stamp.toSec();
-        double odom_right = odom_queue_.back()->header.stamp.toSec();
+        double odom_left, odom_right;
+        {
+          std::lock_guard<std::mutex> odom_lk (odom_mutex_);
+          if (odom_queue_.size() < 3){
+            return ;
+          }
+          odom_left = odom_queue_.front()->header.stamp.toSec();
+          odom_right = odom_queue_.back()->header.stamp.toSec();
+        }
         auto it = image_queue_.begin();
         while(it != image_queue_.end()){
           if((*it)->header.stamp.toSec() > odom_left) break;
@@ -325,15 +323,16 @@ public:
           std::this_thread::sleep_for(10ms);
           break;  
         }
-        
+
         // here image queue has valid data, find latest valid one
         auto it_next = it;
         while(it_next != image_queue_.end()){
           if((*it_next)->header.stamp.toSec() > odom_right)
             break;
-          it = it_next;
           ++it_next;
         }
+        it = std::prev(it_next);
+
         // here we get the valid latest image, detect it
         cv_bridge::CvImagePtr cv_image = *it;
         if (it != image_queue_.begin()){
@@ -686,15 +685,9 @@ public:
   {
     ROS_INFO("stop...");
     active_ = false;
-    img_con_.notify_all();  // for out process loop
-    if (process_th_)
-    {
-      process_th_->join();
-      ROS_INFO("[apriltag localization]: process join");
-    }
-
     camera_image_subscriber_.shutdown();
     odom_sub_.shutdown();
+
     {
       std::lock_guard<std::mutex>lk(image_mutex_);
       image_queue_.clear();
@@ -704,6 +697,14 @@ public:
       odom_queue_.clear();
     }
     ROS_INFO("shutdown odom sub, camera sub");
+    img_con_.notify_all();  // for out process loop
+    if (process_th_)
+    {
+      ROS_INFO("[apriltag localization]: process join");
+      process_th_->join();
+      ROS_INFO("[apriltag localization]: process joined");
+    }
+
     select_tag_name_.clear();
     T_correct_tag_odom_ = boost::none;
     process_th_.reset();
@@ -761,6 +762,7 @@ private:
 
   std::mutex odom_mutex_;
   std::mutex image_mutex_;
+  std::mutex thread_mutex_;
   std::deque<cv_bridge::CvImagePtr> image_queue_;
   std::deque<nav_msgs::OdometryConstPtr> odom_queue_;
 

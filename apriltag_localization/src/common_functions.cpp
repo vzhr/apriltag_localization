@@ -1084,6 +1084,12 @@ void TagDetector::drawDetections_ethz(cv_bridge::CvImagePtr image)
 
     cv::circle(image->image, cv::Point2f((int)det.p[0].first, (int)det.p[0].second), 5,
                cv::Scalar(0, 0, 0xff));
+    cv::circle(image->image, cv::Point2f((int)det.p[1].first, (int)det.p[1].second), 5,
+               cv::Scalar(0, 0, 0xff));
+    cv::circle(image->image, cv::Point2f((int)det.p[2].first, (int)det.p[2].second), 5,
+               cv::Scalar(0, 0, 0xff));
+    cv::circle(image->image, cv::Point2f((int)det.p[3].first, (int)det.p[3].second), 5,
+               cv::Scalar(0, 0, 0xff));
     line(image->image, cv::Point((int)det.p[0].first, (int)det.p[0].second),
          cv::Point((int)det.p[1].first, (int)det.p[1].second),
          cv::Scalar(0, 0xff, 0)); // green
