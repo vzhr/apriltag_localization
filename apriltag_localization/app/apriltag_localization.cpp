@@ -292,7 +292,6 @@ public:
             image_queue_.clear();
             break;
         }
-        r.sleep();
 
         // find valid image
         double odom_left, odom_right;
@@ -425,6 +424,7 @@ public:
           }
           update(tag_result.header.stamp.toSec(), measure);
         }
+        r.sleep();
         lk.lock();
       }
     }
