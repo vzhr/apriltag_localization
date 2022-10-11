@@ -57,8 +57,9 @@ public:
     {
       tag_detections_image_publisher_ = it_->advertise("tag_detections_image", 1);
     }
-    cam_name_sub_ = mt_nh_.subscribe("tag_cam_name", 10, &ApriltagLocalizationNodeLet::camNameCallback, this,
-                                     ros::TransportHints().tcp());
+//    cam_name_sub_ = mt_nh_.subscribe("tag_cam_name", 10, &ApriltagLocalizationNodeLet::camNameCallback, this,
+//                                     ros::TransportHints().tcp());
+    cam_name_sub_ = mt_nh_.subscribe("tag_cam_name", 10, &ApriltagLocalizationNodeLet::camNameCallback, this);
     stop_sub_ = mt_nh_.subscribe("/stop_docking", 10, &ApriltagLocalizationNodeLet::stopCallback, this,
                                  ros::TransportHints().tcp());
 
