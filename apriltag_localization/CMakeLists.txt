@@ -73,7 +73,6 @@ get_target_property(apriltag_LIBRARIES apriltag::apriltag INTERFACE_LINK_LIBRARI
 catkin_package(
   INCLUDE_DIRS
     include
-    ${EIGEN3_INCLUDE_DIRS}
   CATKIN_DEPENDS
     cv_bridge
     geometry_msgs
@@ -93,9 +92,6 @@ catkin_package(
     apriltag_localization
     image_nodelet
     fake_odom_nodelet
-    apriltag_localization_node
-    apriltag_localization_with_camera_node
-    apriltag_localization_camera_node
 )
 
 ###########
@@ -104,7 +100,6 @@ catkin_package(
 
 include_directories(
   include
-  src
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
@@ -120,8 +115,17 @@ add_library(apriltag_localization
         )
 target_link_libraries(apriltag_localization ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} apriltag::apriltag Eigen3::Eigen)
 add_dependencies(apriltag_localization ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(apriltag_localization ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_compile_options(apriltag_localization PUBLIC "-std=c++14")
-
+target_include_directories(
+        apriltag_localization
+        PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:include/apriltag_localization>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/apriltag_localization)
 add_library(image_nodelet
         app/image_nodelet.cpp
         )
@@ -161,11 +165,13 @@ target_link_libraries(apriltag_localization_camera_node image_nodelet ${catkin_L
 ## Install ##
 #############
 
-install(DIRECTORY include/
+install(DIRECTORY include/apriltag_localization/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.h"
 )
-
+install(DIRECTORY src/camera_models
+        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+        PATTERN "*src" EXCLUDE
+        )
 install(DIRECTORY config launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
@@ -176,13 +182,16 @@ install(FILES nodelet_plugins.xml
 install(
   TARGETS
   apriltag_localization
-  apriltag_localization_node
   image_nodelet
-  apriltag_localization_with_camera_node
-  fake_odom_node
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  fake_odom_nodelet
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 )
-
+install(TARGETS
+        apriltag_localization_node
+        apriltag_localization_with_camera_node
+        fake_odom_node
+   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
 install(PROGRAMS scripts/analyze_image DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
