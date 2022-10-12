@@ -89,7 +89,7 @@ public:
       }
     }
     // publish pose
-    if (T_correct_tag_odom_ && active_)
+    if (T_correct_tag_odom_.has_value() && active_)
     {
       auto& pose = msg->pose.pose.position;
       auto& orientation = msg->pose.pose.orientation;
@@ -101,7 +101,10 @@ public:
       pose_msg.pose = isometry2pose(T_tag_baselink);
       pose_msg.header.frame_id = select_tag_name_;
       pose_msg.header.stamp = msg->header.stamp;
-      pose_pub_.publish(pose_msg);
+      if (pose_pub_.getNumSubscribers() > 0)
+      {
+        pose_pub_.publish(pose_msg);
+      }
 
       Eigen::Matrix3d rotation = T_tag_baselink.linear();
       double theta = std::atan2(rotation(1,0), rotation(0,0));
@@ -296,14 +299,19 @@ public:
 
         // find valid image
         double odom_left, odom_right;
+        std::deque<nav_msgs::OdometryConstPtr> odom_queue;
         {
           std::lock_guard<std::mutex> odom_lk (odom_mutex_);
-          if (odom_queue_.size() < 3){
-            return ;
-          }
-          odom_left = odom_queue_.front()->header.stamp.toSec();
-          odom_right = odom_queue_.back()->header.stamp.toSec();
+          odom_queue = odom_queue_;
         }
+
+        if (odom_queue.size() < 3)
+        {
+          return;
+        }
+        odom_left = odom_queue.front()->header.stamp.toSec();
+        odom_right = odom_queue.back()->header.stamp.toSec();
+
         auto it = image_queue_.begin();
         while(it != image_queue_.end()){
           if((*it)->header.stamp.toSec() > odom_left) break;
@@ -379,7 +387,7 @@ public:
           if (tag_pose_pub_.getNumSubscribers() > 0){
             tag_pose_pub_.publish(msg);
           }
-          update(tag_result.header.stamp.toSec(), measure);
+          update(tag_result.header.stamp.toSec(), odom_queue, measure);
         }
 //        r.sleep();
         lk.lock();
@@ -425,7 +433,7 @@ public:
     return data;
   }
 
-  void update(double stamp, const Eigen::VectorXf& measure)
+  void update(double stamp, const std::deque<nav_msgs::OdometryConstPtr>& odom_queue, const Eigen::VectorXf& measure)
   {
     if (!pose_estimator_)
     {
@@ -443,6 +451,7 @@ public:
     {
       ROS_INFO("pose_estimator init");
       pose_estimator_->correct(stamp, measure);
+      ROS_INFO_STREAM("init cov:\n" << pose_estimator_->cov() <<"");
       return;
     }
 
@@ -453,40 +462,41 @@ public:
 
     double time0 = pose_estimator_->lastCorrection();
     double time1 = stamp;
-    std::vector<nav_msgs::OdometryConstPtr> odom_data = select_odom(time0, time1);
+    std::vector<nav_msgs::OdometryConstPtr> odom_data = select_odom(odom_queue, time0, time1);
     if (odom_data.size() < 2)
     {
       // restart estimator
-      ROS_INFO("update: odom_data < 2, stop");
+      ROS_INFO("update: odom_data < 2");
 //      pose_estimator_->stop();
       pose_estimator_->correct(stamp, measure);
-      return;
     }
+    else{
+      for (int i = 0; i < odom_data.size() - 1; ++i)
+      {
+        auto& data0 = odom_data.at(i);
+        auto& data1 = odom_data.at(i + 1);
+        double dt = data1->header.stamp.toSec() - data0->header.stamp.toSec();
+        auto& v0 = data0->twist.twist.linear;
+        auto& w0 = data0->twist.twist.angular;
+        auto& v1 = data1->twist.twist.linear;
+        auto& w1 = data1->twist.twist.angular;
 
-    for (int i = 0; i < odom_data.size() - 1; ++i)
-    {
-      auto& data0 = odom_data.at(i);
-      auto& data1 = odom_data.at(i + 1);
-      double dt = data1->header.stamp.toSec() - data0->header.stamp.toSec();
-      auto& v0 = data0->twist.twist.linear;
-      auto& w0 = data0->twist.twist.angular;
-      auto& v1 = data1->twist.twist.linear;
-      auto& w1 = data1->twist.twist.angular;
-
-      Eigen::Vector3f velocity0(v0.x, v0.y, v0.z);
-      Eigen::Vector3f angular0(w0.x, w0.y, w0.z);
-      Eigen::Vector3f velocity1(v1.x, v1.y, v1.z);
-      Eigen::Vector3f angular1(w1.x, w1.y, w1.z);
-      Eigen::VectorXf control(12);
-      control.middleRows<3>(0) = velocity0;
-      control.middleRows<3>(3) = angular0;
-      control.middleRows<3>(6) = velocity1;
-      control.middleRows<3>(9) = angular1;
-      pose_estimator_->predict_va_rk4(dt, control);
-      pose_estimator_->stamp() = data1->header.stamp.toSec();
+        Eigen::Vector3f velocity0(v0.x, v0.y, v0.z);
+        Eigen::Vector3f angular0(w0.x, w0.y, w0.z);
+        Eigen::Vector3f velocity1(v1.x, v1.y, v1.z);
+        Eigen::Vector3f angular1(w1.x, w1.y, w1.z);
+        Eigen::VectorXf control(12);
+        control.middleRows<3>(0) = velocity0;
+        control.middleRows<3>(3) = angular0;
+        control.middleRows<3>(6) = velocity1;
+        control.middleRows<3>(9) = angular1;
+        ROS_DEBUG_STREAM_THROTTLE(1, "control: " << control.transpose());
+        pose_estimator_->predict_va_rk4(dt, control);
+        pose_estimator_->stamp() = data1->header.stamp.toSec();
+      }
+      pose_estimator_->correct(stamp, measure);
     }
-    pose_estimator_->correct(stamp, measure);
-    cleanOldOdomData(stamp - 1.0);  // for interpolate data
+    ROS_DEBUG_STREAM_THROTTLE(1, "cov:\n" << pose_estimator_->cov());
     /// get correction result
     Eigen::Isometry3d trans = pose_estimator_->matrix();
     Eigen::Isometry3d odom_pose = Eigen::Isometry3d::Identity();
@@ -560,22 +570,22 @@ public:
     return find_tag;
   }
 
-  std::vector<nav_msgs::OdometryConstPtr> select_odom(double time0, double time1)
+  std::vector<nav_msgs::OdometryConstPtr> select_odom(std::deque<nav_msgs::OdometryConstPtr>& odom_queue, double time0, double time1)
   {
     std::vector<nav_msgs::OdometryConstPtr> odom_data;
-    std::lock_guard<std::mutex> lk(odom_mutex_);
-    if (odom_queue_.empty())
+
+    if (odom_queue.size() < 3)
     {
       return odom_data;
     }
 
-    if (odom_queue_.front()->header.stamp.toSec() > time0)
+    if (odom_queue.front()->header.stamp.toSec() > time0)
     {
       return odom_data;
     }
 
-    auto it = odom_queue_.begin();
-    for (size_t i = 0; i < odom_queue_.size() - 1; ++i)
+    auto it = odom_queue.begin();
+    for (size_t i = 0; i < odom_queue.size() - 1; ++i)
     {
       auto it0 = it;
       auto it1 = ++it;
@@ -592,6 +602,7 @@ public:
         continue;
       }
 
+      // END
       if ((*it1)->header.stamp.toSec() > time1)
       {
         if ((*it0)->header.stamp.toSec() > time1 && i == 0)
@@ -599,32 +610,33 @@ public:
           // this happened in start time when first odom come in after image
           break;
         }
-        else if ((*it0)->header.stamp.toSec() <= time1)
+        else if ((*it0)->header.stamp.toSec() > time1)
         {
+          auto data = interpolate_data(*std::prev(it0), *it0, time1);
+          odom_data.push_back(data);
+        }
+        else{
           odom_data.push_back(*it0);
+        }
+        // If the added odom message doesn't end exactly at the camera time
+        // Then we need to add another one that is right at the ending time
+        if (std::abs(time1 - odom_data.back()->header.stamp.toSec()) > 1e-3)
+        {
           auto data = interpolate_data(*it0, *it1, time1);
           odom_data.push_back(data);
           break;
         }
+        break;
       }
     }
     if (odom_data.empty()){
       return odom_data;
     }
 
-    if (odom_data.size() == 1){
-      nav_msgs::OdometryPtr data = boost::make_shared<::nav_msgs::Odometry>();
-      data->header=odom_data.back()->header;
-      data->header.stamp.fromSec(time1);
-      odom_data.push_back(data);
-    }
 
-    // this case for solve latest odom time < time1
-    if (std::abs(time1 - odom_data.back()->header.stamp.toSec()) > 1e-3)
-    {
-      auto data = interpolate_data(odom_data.at(odom_data.size() - 2), odom_data.back(), time1);
-      odom_data.push_back(data);
-    }
+    // this case for the last odom is later than time1
+
+
 
     // Loop through and ensure we do not have an zero dt values
     for (size_t i = 0; i < odom_data.size() - 1; ++i)

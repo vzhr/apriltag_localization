@@ -31,6 +31,7 @@ public:
   double lastCorrection() const{return last_correction_;}
 
   Eigen::Isometry3d matrix();
+  Eigen::MatrixXf cov(){return ukf->cov;};
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 private:
   double stamp_;
