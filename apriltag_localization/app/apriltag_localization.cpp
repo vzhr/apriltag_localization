@@ -570,7 +570,7 @@ public:
     return find_tag;
   }
 
-  std::vector<nav_msgs::OdometryConstPtr> select_odom(std::deque<nav_msgs::OdometryConstPtr>& odom_queue, double time0, double time1)
+  std::vector<nav_msgs::OdometryConstPtr> select_odom(const std::deque<nav_msgs::OdometryConstPtr>& odom_queue, double time0, double time1)
   {
     std::vector<nav_msgs::OdometryConstPtr> odom_data;
 
