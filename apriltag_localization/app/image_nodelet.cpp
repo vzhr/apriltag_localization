@@ -42,7 +42,7 @@ public:
 
     it_ = std::make_shared<image_transport::ImageTransport>(nh_);
     start_sub_ = mt_nh_.subscribe("tag_cam_name", 1, &ImageNodeLet::camCallback, this, ros::TransportHints().tcp());
-    stop_sub_ = mt_nh_.subscribe("/docking_stop",1, &ImageNodeLet::stopCallback, this,ros::TransportHints().tcp());
+    stop_sub_ = mt_nh_.subscribe("/stop_docking",1, &ImageNodeLet::stopCallback, this,ros::TransportHints().tcp());
   }
   void stopCallback(const std_msgs::StringConstPtr&msg){
     auto m = boost::make_shared<std_msgs::String>();

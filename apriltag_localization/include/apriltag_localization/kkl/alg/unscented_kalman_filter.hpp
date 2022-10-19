@@ -69,6 +69,14 @@ public:
     }
   }
 
+  T angular(T in){
+    while (in < -M_PI){
+      in += M_PI;
+    }
+    while (in > M_PI){
+      in -= M_PI;
+    }
+  }
   /**
    * @brief predict
    * @param control  input vector
@@ -92,6 +100,7 @@ public:
     for (int i = 0; i < S; i++) {
       mean_pred += weights[i] * sigma_points.row(i);
     }
+    // for angular average
     for (int i = 0; i < S; i++) {
       VectorXt diff = sigma_points.row(i).transpose() - mean_pred;
       cov_pred += weights[i] * diff * diff.transpose();
@@ -120,11 +129,41 @@ public:
 
     mean_pred.setZero();
     cov_pred.setZero();
+
     for (int i = 0; i < S; i++) {
       mean_pred += weights[i] * sigma_points.row(i);
     }
+    int it_num = 20;
+    VectorXt delta_sum(3);
+    delta_sum(0) = T(1.0);
+    Eigen::AngleAxis<T> x;
+    x.axis() = sigma_points.row(0).leftCols(3).normalized();
+    x.angle() = sigma_points.row(0).leftCols(3).norm();
+    while (delta_sum.norm() > 0.0001 && it_num > 0){
+      delta_sum.setZero();
+      for (int i = 0; i < S; ++i)
+      {
+        Eigen::AngleAxis<T> x_i;
+        x_i.axis() = sigma_points.row(i).leftCols(3).normalized();
+        x_i.angle() = sigma_points.row(i).leftCols(3);
+        Eigen::AngleAxis<T> delta (x.inverse() * x_i);
+        delta_sum += weights[i] * delta.angle() * delta.axis();
+      }
+      Eigen::AngleAxis<T> delta_axis;
+      delta_axis.axis() = delta_sum.normalized();
+      delta_axis.angle() = delta_sum.norm();
+      x = x * delta_axis;
+      --it_num;
+    }
+    mean_pred.topRows(3) = x.angle() * x.axis();
+
     for (int i = 0; i < S; i++) {
       VectorXt diff = sigma_points.row(i).transpose() - mean_pred;
+      Eigen::AngleAxis<T> sigma_axis;
+      sigma_axis.angle() = sigma_points.row(i).leftCols(3).norm();
+      sigma_axis.axis() = sigma_points.row(i).leftCols(3).normalized();
+      Eigen::AngleAxis<T> d(x.inverse() * sigma_axis);
+      diff.topRows(3) = d.angle() * d.axis();
       cov_pred += weights[i] * diff * diff.transpose();
     }
     cov_pred += R;
@@ -157,23 +196,77 @@ public:
     for (int i = 0; i < ext_sigma_points.rows(); i++) {
       expected_measurement_mean += ext_weights[i] * expected_measurements.row(i);
     }
+    // angular average
+    int it_num = 20;
+    VectorXt delta_sum(3);
+    delta_sum(0) = T(1.0);
+    Eigen::AngleAxis<T> x;
+    x.axis() = expected_measurements.row(0).leftCols(3).normalized();
+    x.angle() = expected_measurements.row(0).leftCols(3).norm();
+    while (delta_sum.norm() > 0.0001 && it_num > 0){
+      delta_sum.setZero();
+      for (int i = 0; i < S; ++i)
+      {
+        Eigen::AngleAxis<T> x_i;
+        x_i.axis() = expected_measurements.row(i).leftCols(3).normalized();
+        x_i.angle() = expected_measurements.row(i).leftCols(3);
+        Eigen::AngleAxis<T> delta (x.inverse() * x_i);
+        delta_sum += ext_weights[i] * delta.angle() * delta.axis();
+      }
+      Eigen::AngleAxis<T> delta_axis;
+      delta_axis.axis() = delta_sum.normalized();
+      delta_axis.angle() = delta_sum.norm();
+      x = x * delta_axis;
+      --it_num;
+    }
+    expected_measurement_mean.topRows(3) = x.angle() * x.axis();
+
+
     MatrixXt expected_measurement_cov = MatrixXt::Zero(K, K);
     for (int i = 0; i < ext_sigma_points.rows(); i++) {
       VectorXt diff = expected_measurements.row(i).transpose() - expected_measurement_mean;
+      Eigen::AngleAxis<T> expected_axis;
+      expected_axis.angle() = expected_measurements.row(i).leftCols(3).norm();
+      expected_axis.axis() = expected_measurements.row(i).leftCols(3).normalized();
+      Eigen::AngleAxis<T> d(x.inverse() * expected_axis);
+      diff.topRows(3) = d.angle() * d.axis();
       expected_measurement_cov += ext_weights[i] * diff * diff.transpose();
     }
+
+
     // calculated transformed covariance
+    Eigen::AngleAxis<T> ext_mean_axis;
+    ext_mean_axis.axis() = ext_mean_pred.topRows(3).normalized();
+    ext_mean_axis.angle() = ext_mean_pred.topRows(3).norm();
     MatrixXt sigma = MatrixXt::Zero(N + K, K);
     for (int i = 0; i < ext_sigma_points.rows(); i++) {
       auto diffA = (ext_sigma_points.row(i).transpose() - ext_mean_pred);
+      Eigen::AngleAxis<T> ext_sigma_axis;
+      ext_sigma_axis.angle() = ext_sigma_points.row(i).leftCols(3).norm();
+      ext_sigma_axis.axis() = ext_sigma_points.row(i).leftCols(3).normalized();
+      Eigen::AngleAxis<T> d(ext_mean_axis.inverse() * ext_sigma_axis);
+      diffA.topRows(3) = d.angle() * d.axis();
+
       auto diffB = (expected_measurements.row(i).transpose() - expected_measurement_mean);
+      Eigen::AngleAxis<T> ext_measure_axis;
+      ext_measure_axis.angle() = expected_measurements.row(i).leftCols(3).norm();
+      ext_measure_axis.axis() = expected_measurements.row(i).leftCols(3).normalized();
+      Eigen::AngleAxis<T> dd(x.inverse() * ext_measure_axis);
+      diffB.topRows(3) = dd.angle() * dd.axis();
       sigma += ext_weights[i] * (diffA * diffB.transpose());
     }
 
     kalman_gain = sigma * expected_measurement_cov.inverse();
     const auto& Kk = kalman_gain;
 
-    VectorXt ext_mean = ext_mean_pred + Kk * (measurement - expected_measurement_mean);
+    VectorXt diff = measurement - expected_measurement_mean;
+    Eigen::AngleAxis<T> measure_axis;
+    measure_axis.angle() = measurement.topRows(3).norm();
+    measure_axis.axis() = measurement.topRows(3).normalized();
+    Eigen::AngleAxis<T> d(x.inverse() * measure_axis);
+    diff.topRows(3) = d.angle() * d.axis();
+
+    VectorXt ext_mean = ext_mean_pred + Kk * diff;
     MatrixXt ext_cov = ext_cov_pred - Kk * expected_measurement_cov * Kk.transpose();
 
     mean = ext_mean.topLeftCorner(N, 1);

@@ -168,9 +168,9 @@ target_link_libraries(apriltag_localization_camera_node image_nodelet ${catkin_L
 install(DIRECTORY include/apriltag_localization/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
-install(DIRECTORY src/camera_models
+install(DIRECTORY src/
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-        PATTERN "*src" EXCLUDE
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
         )
 install(DIRECTORY config launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
