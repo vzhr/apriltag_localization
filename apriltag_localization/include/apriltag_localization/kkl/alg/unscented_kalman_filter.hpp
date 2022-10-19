@@ -145,7 +145,7 @@ public:
       {
         Eigen::AngleAxis<T> x_i;
         x_i.axis() = sigma_points.row(i).leftCols(3).normalized();
-        x_i.angle() = sigma_points.row(i).leftCols(3);
+        x_i.angle() = sigma_points.row(i).leftCols(3).norm();
         Eigen::AngleAxis<T> delta (x.inverse() * x_i);
         delta_sum += weights[i] * delta.angle() * delta.axis();
       }
@@ -209,7 +209,7 @@ public:
       {
         Eigen::AngleAxis<T> x_i;
         x_i.axis() = expected_measurements.row(i).leftCols(3).normalized();
-        x_i.angle() = expected_measurements.row(i).leftCols(3);
+        x_i.angle() = expected_measurements.row(i).leftCols(3).norm();
         Eigen::AngleAxis<T> delta (x.inverse() * x_i);
         delta_sum += ext_weights[i] * delta.angle() * delta.axis();
       }
@@ -240,14 +240,14 @@ public:
     ext_mean_axis.angle() = ext_mean_pred.topRows(3).norm();
     MatrixXt sigma = MatrixXt::Zero(N + K, K);
     for (int i = 0; i < ext_sigma_points.rows(); i++) {
-      auto diffA = (ext_sigma_points.row(i).transpose() - ext_mean_pred);
+      VectorXt diffA = (ext_sigma_points.row(i).transpose() - ext_mean_pred);
       Eigen::AngleAxis<T> ext_sigma_axis;
       ext_sigma_axis.angle() = ext_sigma_points.row(i).leftCols(3).norm();
       ext_sigma_axis.axis() = ext_sigma_points.row(i).leftCols(3).normalized();
       Eigen::AngleAxis<T> d(ext_mean_axis.inverse() * ext_sigma_axis);
       diffA.topRows(3) = d.angle() * d.axis();
 
-      auto diffB = (expected_measurements.row(i).transpose() - expected_measurement_mean);
+      VectorXt diffB = (expected_measurements.row(i).transpose() - expected_measurement_mean);
       Eigen::AngleAxis<T> ext_measure_axis;
       ext_measure_axis.angle() = expected_measurements.row(i).leftCols(3).norm();
       ext_measure_axis.axis() = expected_measurements.row(i).leftCols(3).normalized();
